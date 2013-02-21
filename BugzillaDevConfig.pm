@@ -7,7 +7,8 @@ our @EXPORT = qw(
     $HTDOCS_PATH
     $DATA_PATH
     $REPO_PATH
-    $YUI_PATH
+    $YUI2_PATH
+    $YUI3_PATH
 
     $DEFAULT_BZR_HOST
     $DEFAULT_BMO_REPO
@@ -33,12 +34,13 @@ our @EXPORT = qw(
 our $HTDOCS_PATH              = '/home/dkl/devel/htdocs';
 our $DATA_PATH                = '/home/dkl/devel/repos/git/bugzilla-dev-manager/data';
 our $REPO_PATH                = '/home/dkl/devel/repos/bzr';
-our $YUI_PATH                 = '/home/dkl/devel/yui';
+our $YUI2_PATH                = '/home/dkl/devel/yui2';
+our $YUI3_PATH                = '/home/dkl/devel/yui3';
 
 our $DEFAULT_BZR_HOST         = 'https://bzr.mozilla.org';
 our $DEFAULT_BMO_REPO         = 'bmo/4.0';
 our $DEFAULT_BMO_DB           = 'bugs_bmo';
-our $BUGZILLA_TRUNK_MILESTONE = '4.4';
+our $BUGZILLA_TRUNK_MILESTONE = '5.0';
 
 our $URL_BASE                 = 'http://centos/';
 our $ATTACH_BASE              = 'http://centos/';
