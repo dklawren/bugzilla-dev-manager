@@ -2,7 +2,7 @@
 
 use strict;
 
-use lib '/opt/bugzilla/repo/git/bugzilla-dev-manager';
+use lib '/home/dkl/devel/git/bugzilla-dev-manager';
 
 use constant SKIP_BUG_INFO => 0;
 
@@ -72,20 +72,16 @@ $template->process("$DATA_PATH/index.tt2", $vars)
 
 sub get_instances {
     # get directories, sort non-bugs first
-    my @dirs =
-        sort {
+    my @dirs = 
+        sort { 
             my $a_bug = dirToBugID($a) ? 1 : 0;
             my $b_bug = dirToBugID($b) ? 1 : 0;
             return
                 ($a_bug <=> $b_bug)
                 or ($a cmp $b)
             ;
-        }
-        grep {
-            -d $_
-            && !-e "$_/.hidden"
-            && -e "$_/localconfig"
-        }
+        } 
+        grep { -d $_ && !-e "$_/.hidden"  }
         glob("*");
 
     # init instances
@@ -143,12 +139,14 @@ sub get_instances {
 
 sub get_db {
     my $subdir = shift;
-    open(FH, "$HTDOCS_PATH/$subdir/localconfig") or die "$subdir/localconfig: $!";
-    my @file = <FH>;
-    close FH;
-    foreach my $line (@file) {
-        next unless $line =~ /^\$db_name\s*=\s*'([^']+)'/;
-        return $1;
+    if (-f "$HTDOCS_PATH/$subdir/localconfig") {
+        open(FH, "$HTDOCS_PATH/$subdir/localconfig") or die "$subdir/localconfig: $!";
+        my @file = <FH>;
+        close FH;
+        foreach my $line (@file) {
+            next unless $line =~ /^\$db_name\s*=\s*'([^']+)'/;
+            return $1;
+        }
     }
     return "unknown";
 }

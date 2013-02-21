@@ -186,7 +186,7 @@ function delete_instance(dir) {
     [% END %]
     <tr id="tr_[% instance.dir FILTER html %]">
         <td nowrap>
-            <a href="[% instance.dir FILTER url %]/">[% instance.dir FILTER html %]</a>
+            <a href="[% instance.dir FILTER url %]/" target="_blank">[% instance.dir FILTER html %]</a>
         </td>
         <td>
             <a href="#" class="

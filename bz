@@ -5,8 +5,9 @@ use warnings;
 
 #
 
-use FindBin qw($Bin);
-use lib $Bin;
+#use FindBin qw($Bin);
+#use lib $Bin;
+use lib '/home/dkl/devel/repos/git/bugzilla-dev-manager';
 
 #
 
@@ -51,6 +52,7 @@ if ($action eq 'new') {
     if (!databaseExists($database, %LOCALCONFIG)) {
         exit unless confirm("the database '$database' does not exist, continue?");
     }
+    my $checksetup_answers = shift @ARGV || '';
     info("creating $subdir");
     info("using repo $repo");
     info("using database $database");
@@ -60,8 +62,8 @@ if ($action eq 'new') {
     fixParams($subdir);
     fixHtAccess($subdir);
     pushd("$HTDOCS_PATH/$subdir");
-    runChecksetup('-t');
-    runChecksetup();
+    runChecksetup('-t', $checksetup_answers);
+    runChecksetup($checksetup_answers);
     popd();
     fixSubDir($subdir);
     info("$subdir created\n" . getDirSummary($subdir, 1));
@@ -81,7 +83,7 @@ if ($action eq 'new') {
         my $bugId = shift @ARGV
             or die "bug number required\n";
         my $patch = validatePatch($bugId, @ARGV);
-        deployRepoPatch($repo, $patch, grep { $_ eq '-force' } @ARGV);
+        deployRepoPatch($repo, $patch);
     } else {
         getCurrentSubdir();
     }
@@ -119,8 +121,7 @@ if ($action eq 'new') {
 } elsif ($action eq 'diff') {
     my $subdir = getCurrentSubdir();
     my $quick = grep { $_ eq '-quick' } @ARGV;
-    my $stdout = grep { $_ eq '-' or $_ eq '-stdout' } @ARGV;
-    @ARGV = grep { $_ !~ /^-/ } @ARGV;
+    @ARGV = grep { $_ ne '-quick' } @ARGV;
     my $bug = shift || $subdir;
     my @files = @ARGV;
     if (!$quick) {
@@ -128,7 +129,6 @@ if ($action eq 'new') {
         my @missing;
         my @added = getAddedFiles("$HTDOCS_PATH/$subdir");
         foreach my $file (@added) {
-            next unless -T "$HTDOCS_PATH/$subdir/$file";
             if (isMissingBoilerPlate("$HTDOCS_PATH/$subdir/$file")) {
                 push @missing, $file;
             }
@@ -140,10 +140,10 @@ if ($action eq 'new') {
             exit unless confirm("continue?");
         }
         checkForTabs($subdir);
-        runTests($subdir, 2, 4, 5, 6, 8, 9, 10, 11);
+        runTests($subdir, 2, 4, 5, 8, 9, 10);
     }
     info("making patch");
-    diff($subdir, $bug, $stdout, @files);
+    diff($subdir, $bug, @files);
 
 } elsif ($action eq 'db') {
     my $subdir = getCurrentSubdir();
@@ -178,7 +178,7 @@ if ($action eq 'new') {
 
 } elsif ($action eq 'disable-bugmail') {
     my $subdir = getCurrentSubdir();
-    info("disabling bugmail on " . getCurrentDatabase($subdir));
+    info("disabling bugmail for $subdir");
     disableBugmail($subdir);
 
 } elsif ($action eq 'reset-email-queue' || $action eq 'reset-queue') {
@@ -206,11 +206,6 @@ if ($action eq 'new') {
     my $subdir = getCurrentSubdir();
     info("unfix $subdir");
     unfix($subdir);
-
-} elsif ($action eq 'create-db' || $action eq 'create-database') {
-    my $subdir = getCurrentSubdir();
-    @ARGV or die "syntax: bz $action <database_name>\n";
-    createDatabase($subdir, @ARGV);
 
 } elsif ($action eq 'drop-table') {
     my $subdir = getCurrentSubdir();
@@ -258,7 +253,7 @@ if ($action eq 'new') {
 } elsif ($action eq 'test') {
     my $subdir = getCurrentSubdir();
     info("running tests");
-    checkForTabs($subdir);
+    #checkForTabs($subdir);
     runTests($subdir, @ARGV);
 
 } elsif ($action eq 'xt') {
@@ -292,15 +287,11 @@ if ($action eq 'new') {
     my $edition = $1;
     my $subdir = getCurrentSubdir();
     info("switching to yui-$edition");
-    yui($subdir, $edition, (grep { $_ eq '-force' } @ARGV));
+    yui($subdir, $edition);
 
 } elsif ($action eq 'mysql') {
     my $subdir = getCurrentSubdir();
     mysqlClient($subdir);
-
-} elsif ($action eq 'mysql-trace') {
-    my $subdir = getCurrentSubdir();
-    mysqlTraceToggle($subdir);
 
 } else {
     usage($action ? "unknown action '$action'" : '');
@@ -429,8 +420,12 @@ sub validateDatabase {
 }
 
 sub validatePatch {
-    my ($bug_id, $patch, $from_bug_id) = @_;
+    my ($bug_id, $patch, $from_bug_id, $revision) = @_;
     $bug_id ||= '';
+
+    if ($patch eq 'bzr') {
+        return "$from_bug_id/diff/$revision";
+    }
 
     if ($patch && $patch eq 'bug' && $from_bug_id) {
         $patch = '';
@@ -451,9 +446,6 @@ sub validatePatch {
             next unless $rh->{is_patch};
             next if $rh->{is_obsolete};
             push @patches, $rh;
-        }
-        if (!scalar @patches) {
-            die "no patches found\n";
         }
         if (scalar @patches < 10) {
             my $prompt = "  0. cancel\n";
@@ -487,7 +479,7 @@ sub updateRepo {
 }
 
 sub createSubDir {
-    my ($subdir, $repo) = @_;
+    my ($subdir, $repo, $noverify) = @_;
     return if -e "$HTDOCS_PATH/$subdir";
     die "invalid repo\n" unless -d "$REPO_PATH/$repo";
     info("creating $subdir directory");
@@ -495,7 +487,9 @@ sub createSubDir {
     foreach my $file (glob("$HTDOCS_PATH/$subdir/*.patch")) {
         unlink $file;
     }
-    die "$HTDOCS_PATH/$subdir/checksetup.pl missing\n" unless -e "$HTDOCS_PATH/$subdir/checksetup.pl";
+    unless ($noverify) {
+        die "$HTDOCS_PATH/$subdir/checksetup.pl missing\n" unless -e "$HTDOCS_PATH/$subdir/checksetup.pl";
+    }
 }
 
 sub getCurrentDatabase {
@@ -569,17 +563,16 @@ sub applyLocalPatches {
         system "patch --forward --strip=0 --input=$file --reject-file=- --batch";
     }
 
-    if (!-e "extensions/LimitedEmailEx"
-        && (!-e "extensions/LimitedEmail" || -e "extensions/LimitedEmail/disabled")
-    ) {
-        info("deploying limited-email extension");
-        symlink("$REPO_PATH/LimitedEmailEx", "$HTDOCS_PATH/$subdir/extensions/LimitedEmailEx")
-            or die $!;
-    } elsif (-e "extensions/LimitedEmailEx" && !-e "extensions/LimitedEmail/disabled") {
-        info("deleting limited-email extension");
-        unlink("$HTDOCS_PATH/$subdir/extensions/LimitedEmailEx");
-    }
-
+#    if (!-e "extensions/LimitedEmailEx"
+#        && (!-e "extensions/LimitedEmail" || -e "extensions/LimitedEmail/disabled")
+#    ) {
+#        info("deploying limited-email extension");
+#        symlink("$REPO_PATH/LimitedEmailEx", "$HTDOCS_PATH/$subdir/extensions/LimitedEmailEx")
+#            or die $!;
+#    } elsif (-e "extensions/LimitedEmailEx" && !-e "extensions/LimitedEmail/disabled") {
+#        info("deleting limited-email extension");
+#        unlink("$HTDOCS_PATH/$subdir/extensions/LimitedEmailEx");
+#    }
     popd();
 }
 
@@ -613,28 +606,46 @@ sub deploySubdirPatch {
     my ($subdir, $patch) = @_;
 
     info("fetching patch $patch");
-    my $proxy = getBmoProxy();
 
-    my $response = $proxy->call('Bug.attachments', { attachment_ids => [ $patch ] });
-    soapErrChk($response);
-
-    my $attachments = $response->result->{attachments};
-    die "failed to get attachment $patch information\n" unless exists $attachments->{$patch};
-    my $attachment = $attachments->{$patch};
-    printf STDERR "Bug %s: %s\n", $attachment->{bug_id}, $attachment->{description} || $attachment->{summary};
-    die "attachment is not a patch\n" unless $attachment->{is_patch} == '1';
-    if ($attachment->{is_obsolete} == '1') {
-        return unless confirm('attachment is obsolete, continue?');
+    my ($filename, $content);
+    if ($patch =~ /^(bugzilla|bmo).*\/\d+$/) {
+        use LWP::UserAgent;
+        my $ua = LWP::UserAgent->new();
+        $ua->timeout(10);
+        $ua->env_proxy;
+        my $response = $ua->get("$DEFAULT_BZR_HOST/$patch");
+        if ($response->is_success) {
+            $content = $response->decoded_content;
+            my ($revision) = $patch =~ /\/(\d+)$/;
+            my $previous_revision = $revision - 1;
+            $filename = "${revision}_${previous_revision}.patch";
+        }
+        else {
+            die $response->status_line;
+        }
     }
+    else {
+        my $proxy = getBmoProxy();
 
-    my $bug_id = $attachment->{bug_id};
-    my $filename = "$bug_id-$patch.patch";
-    my $content = $attachment->{data};
-    $content =~ s/\015\012/\012/g;
+        my $response = $proxy->call('Bug.attachments', { attachment_ids => [ $patch ] });
+        soapErrChk($response);
 
-    if (dirToBugID($subdir) && dirToBugID($subdir) != $bug_id) {
-        my $summary = getBugSummary($bug_id);
-        exit unless confirm("the patch from a different bug:\nBug $bug_id: $summary\ncontinue?");
+        my $attachments = $response->result->{attachments};
+        die "failed to get attachment $patch information\n" unless exists $attachments->{$patch};
+        my $attachment = $attachments->{$patch};
+        printf STDERR "Bug %s: %s\n", $attachment->{bug_id}, $attachment->{description} || $attachment->{summary};
+        die "attachment is not a patch\n" unless $attachment->{is_patch} == '1';
+        die "attachment is obsolete\n" if $attachment->{is_obsolete} == '1';
+
+        my $bug_id = $attachment->{bug_id};
+        $filename = "$bug_id-$patch.patch";
+        $content = $attachment->{data};
+        $content =~ s/\015\012/\012/g;
+
+        if (dirToBugID($subdir) && dirToBugID($subdir) != $bug_id) {
+            my $summary = getBugSummary($bug_id);
+            exit unless confirm("the patch from a different bug:\nBug $bug_id: $summary\ncontinue?");
+        }
     }
 
     pushd("$HTDOCS_PATH/$subdir");
@@ -645,7 +656,7 @@ sub deploySubdirPatch {
 }
 
 sub deployRepoPatch {
-    my ($repodir, $patch, $force) = @_;
+    my ($repodir, $patch) = @_;
 
     info("fetching patch $patch");
     my $proxy = getBmoProxy();
@@ -666,9 +677,7 @@ sub deployRepoPatch {
             last;
         }
     }
-    if (!$force) {
-        die "attachment is not r+\n" unless $reviewed;
-    }
+    die "attachment is not r+\n" unless $reviewed;
 
     my $bug_id = $attachment->{bug_id};
     my $filename = "$bug_id-$patch.patch";
@@ -730,7 +739,7 @@ sub getBugInfo {
 }
 
 sub diff {
-    my ($subdir, $bug, $stdout, @files) = @_;
+    my ($subdir, $bug, @files) = @_;
     die "Not a branch: $HTDOCS_PATH/$subdir\n" unless -e "$HTDOCS_PATH/$subdir/.bzr";
     pushd("$HTDOCS_PATH/$subdir");
 
@@ -746,17 +755,38 @@ sub diff {
 
     unfix($subdir);
     my $patch = `bzr diff @files`;
-    my $filename;
-    if ($bug eq '-' or $stdout) {
+    if ($bug eq '-') {
         print $patch;
     } else {
-        $filename = "${bug}_$revision.patch";
-        print "creating $filename\n";
-        write_file($filename, $patch);
+        print "creating ${bug}_$revision.patch\n";
+        write_file("${bug}_$revision.patch", $patch);
     }
     fixSubDir($subdir);
-    info("$filename created") if $filename;
     popd();
+}
+
+sub fixTestParams {
+    my ($subdir) = @_;
+    my $filename = "$HTDOCS_PATH/$subdir/test/config/selenium_test.conf";
+    return unless -e $filename;
+    
+    $TEST_PARAMS{bugzilla_installation} = $subdir;
+    $TEST_PARAMS{bugzilla_path} = "$HTDOCS_PATH/$subdir";
+
+    my @file;
+    open(FH, $filename) or die "failed to open $filename: $!\n";
+    while (<FH>) {
+        my $line = $_;
+        foreach my $name (sort keys %TEST_PARAMS) {
+            $line = fixParam($line, $name, $TEST_PARAMS{$name});
+        }
+        push @file, $line;
+    }
+    close FH;
+
+    open(FH, ">$filename") or die $!;
+    print FH @file;
+    close FH;
 }
 
 sub fixParams {
@@ -1095,7 +1125,8 @@ sub dropColumn {
     my @columns;
 
     foreach my $name (@names) {
-        if (scalar(split(/\./, $name)) != 2) {
+        my @parts = split(/\./, $name);
+        if (scalar @parts != 2) {
             die "invalid column '$name'; use table.column\n";
         }
         my ($table, $column) = split(/\./, $name);
@@ -1267,7 +1298,10 @@ sub showInfo {
     my $filename = "$HTDOCS_PATH/$subdir/.bzr/branch/branch.conf";
     if (-e $filename) {
         my $conf = read_file($filename);
-        ($bzr_branch) = $conf =~ /bound_location\s*=\s*(.+)\n/;
+        ($bzr_branch) = $conf =~ /submit_branch\s*=\s*(.+)\n/;
+        if (!$bzr_branch) {
+            ($bzr_branch) = $conf =~ /bound_location\s*=\s*(.+)\n/;
+        }
     }
 
     printf(
@@ -1305,99 +1339,45 @@ sub mysqlClient {
     system $cmd;
 }
 
-sub mysqlTraceToggle {
-    my ($subdir) = @_;
-    my $dbh = getDbh($subdir, 1);
-    my (undef, $value) = $dbh->selectrow_array("SHOW VARIABLES LIKE 'general_log'");
-    my (undef, $filename) = $dbh->selectrow_array("SHOW VARIABLES LIKE 'general_log_file'");
-    if ($value eq 'ON') {
-        info("disabling logging to $filename");
-        $value = 'OFF';
-    } else {
-        info("enabling logging to $filename");
-        $value = 'ON';
-    }
-    $dbh->do("SET GLOBAL general_log='$value'");
-}
-
-sub createDatabase {
-    my ($subdir, $db) = @_;
-    my $dbh = getDbh($subdir, 1);
-    $db = validateDatabase($db);
-    $dbh->do("CREATE DATABASE $db DEFAULT CHARACTER SET utf8");
-    info("database $db created");
-}
-
 sub yui {
-    my ($subdir, $edition, $force) = @_;
-    pushd("$HTDOCS_PATH/$subdir");
+    my ($subdir, $edition) = @_;
     return unless -e "$HTDOCS_PATH/$subdir/js/yui/animation/animation-min.js";
-    die "unsupported edition '$edition'\n" unless $edition eq 'min' || $edition eq 'debug';
 
-    unless ($force) {
-        my @js = read_file('js/yui/yahoo/yahoo-min.js');
-        return if $edition eq 'min' && scalar(@js) <= 8;
-        return if $edition eq 'debug' && scalar(@js) > 8;
+    my $src = "$YUI_PATH/build";
+
+    my $is_debug;
+    {
+        open(FH, "$HTDOCS_PATH/$subdir/js/yui/animation/animation-min.js")
+            or die $!;
+        my @lines = <FH>;
+        close(FH);
+        $is_debug = scalar @lines > 30;
     }
-
-    my $src = "$YUI2_PATH/build";
+    return if $edition eq 'debug' && $is_debug;
+    return if $edition eq 'min' && !$is_debug;
+    
     find(
         sub {
             my $filename = $File::Find::name;
-            return if -d $filename;
             $filename =~ s/^.*\Q$HTDOCS_PATH\/$subdir\/js\/yui\///;
-            return unless
-                $filename =~ /^(.+)-min\.(.+)/
-                || $filename =~ /^(yahoo-dom-event\/yahoo-dom-event)\.(js)$/;
+            return unless $filename =~ /^(.+)-min(.+)/;
             my ($file, $ext) = ($1, $2);
             my $replacement;
             if ($edition eq 'debug') {
-                if ($file eq 'yahoo-dom-event/yahoo-dom-event') {
-                    $replacement = "$file-debug.$ext";
-                } elsif (-e "$src/$file.$ext") {
-                    $replacement = "$file.$ext";
+                if (-e "$src/$file$ext") {
+                    $replacement = "$src/$file$ext";
                 }
             } else {
-                if ($file eq 'yahoo-dom-event/yahoo-dom-event') {
-                    $replacement = "$file.$ext";
-                } elsif (-e "$src/$file-min.$ext") {
-                    $replacement = "$file-min.$ext";
+                if (-e "$src/$file-min$ext") {
+                    $replacement = "$src/$file-min$ext";
                 }
             }
-            die "failed to find replacement for $file" unless $replacement;
-            info("replacing $filename with $replacement");
-            copy("$src/$replacement", $File::Find::name)
+            die "failed to find replacement\n" unless $replacement;
+            info("replacing $filename");
+            copy($replacement, $File::Find::name)
                 or die $!;
         },
         "$HTDOCS_PATH/$subdir/js/yui"
-    );
-
-    $src = "$YUI3_PATH/build";
-    find(
-        sub {
-            my $filename = $File::Find::name;
-            return if -d $filename;
-            $filename =~ s/^.*\Q$HTDOCS_PATH\/$subdir\/js\/yui3\///;
-            return if $filename =~ /^gallery-/;
-            return unless
-                $filename =~ /^(.+)-min\.(.+)/;
-            my ($file, $ext) = ($1, $2);
-            my $replacement;
-            if ($edition eq 'debug') {
-                if (-e "$src/$file.$ext") {
-                    $replacement = "$file.$ext";
-                }
-            } else {
-                if (-e "$src/$file-min.$ext") {
-                    $replacement = "$file-min.$ext";
-                }
-            }
-            die "failed to find replacement for $filename" unless $replacement;
-            info("replacing $filename with $replacement");
-            copy("$src/$replacement", $File::Find::name)
-                or die $!;
-        },
-        "$HTDOCS_PATH/$subdir/js/yui3"
     );
 }
 
@@ -1413,8 +1393,9 @@ sub checkForTabs {
     find(sub {
             my $file = $File::Find::name;
             return if -d $file;
+            return if $file =~ /js\/yui/;
             return unless -T $file;
-            return if $file =~ /^\Q$root\E\/(\.bzr|contrib|data|js\/yui\d?|docs)\//;
+            return if $file =~ /^\Q$root\E\/(\.bzr|contrib|data|js\/yui|docs)\//;
             return if $file =~ /\.patch$/;
             my $filename = $file;
             $filename =~ s/^\Q$root\E\///;
@@ -1536,29 +1517,70 @@ sub runChecksetup {
 sub runTests {
     my ($subdir, @args) = @_;
     pushd("$HTDOCS_PATH/$subdir");
-    my @tests;
+    my @sanity_tests;
+    my $selenium_tests   = 0;
+    my $webservice_tests = 0;
     if (scalar @args) {
         foreach my $arg (@args) {
-            push @tests, glob("t/*$arg*.t");
+            if ($arg eq '-selenium') {
+                $selenium_tests = 1;
+            } elsif ($arg eq '-webservice') {
+                $webservice_tests = 1;
+            } elsif ($arg eq '-all') {
+                $selenium_tests = 1;
+                $webservice_tests = 1;
+                push @sanity_tests, glob("t/*.t");
+                last;
+            } else {
+                push @sanity_tests, glob("t/*$arg*.t");
+            }   
         }
     } else {
-        push @tests, glob("t/*.t");
+        push @sanity_tests, glob("t/*.t");
     }
-    runtests(@tests);
+    if (@sanity_tests) {
+        info("running sanity tests");
+        runtests(@sanity_tests);
+    }
+    if ($selenium_tests || $webservice_tests) {
+        info("setting up for advanced tests");
+        my $repo_version = getDirData($subdir, 'repo-version');
+        my ($type, $release) = split('-', $repo_version);
+        my $repo = "bmo/qa/$release";
+        updateRepo($repo);
+        createSubDir("$subdir/test", $repo, 1);
+        fixTestParams($subdir);
+        system "perl -I. $HTDOCS_PATH/$subdir/test/config/generate_test_data.pl " . 
+               "$HTDOCS_PATH/$subdir/test/config/selenium_test.conf";
+        popd();
+        my @patches = glob("$HTDOCS_PATH/$subdir/test/config/*.patch");
+        foreach my $file (@patches) {
+            info("applying patch from $file");
+            system "patch -p0 -N < $file";
+        }
+    }
+    if ($selenium_tests) {
+        info("running selenium tests");
+        pushd("$HTDOCS_PATH/$subdir/test/t");
+        my @tests = ("selenium_server_start.t");
+        push(@tests, glob("test_*.t"));
+        push(@tests, "selenium_server_stop.t");
+        runtests(@tests);
+        popd();
+    }
+    if ($webservice_tests) {
+        info("running webservice tests");
+        pushd("$HTDOCS_PATH/$subdir/test/t");
+        my @tests = glob("webservice_*.t");
+        runtests(@tests);
+        popd();
+    }
     popd();
 }
 
 sub runXtTests {
     my ($subdir, @args) = @_;
     pushd("$HTDOCS_PATH/$subdir");
-    my $dbh = getDbh($subdir);
-    my ($bug_count) = $dbh->selectrow_array("SELECT COUNT(*) FROM bugs");
-    if ($bug_count) {
-        my $database = getCurrentDatabase($subdir);
-        die "unable to execute xt tests on $database because the bugs table is not empty\n";
-    }
-    # if the tests die, bugs_fulltext isn't cleared, and can result in duplicate key errors
-    $dbh->do('DELETE FROM bugs_fulltext');
     $ENV{BZ_WRITE_TESTS} = 1;
     runtests('xt/search.t');
     popd();
@@ -1651,8 +1673,12 @@ displays information about the current instance
 lists all instances
 
 =item B<bz> B<patch> [I<attachment id>]
+
 =item B<bz> B<patch> [I<attachment url>]
+
 =item B<bz> B<patch> B<bug> [I<bug id>]
+
+=item B<bz> B<patch> B<bzr> [I<repo>] [I<revision>]
 
 download and apply a patch
 
@@ -1730,10 +1756,6 @@ only import files exported by B<export-schema>, unless you like breaking bugzill
 =item B<bz> B<mysql>
 
 runs mysql client connecting to the bugzilla database
-
-=item B<bz> B<mysql-trace>
-
-toggles mysql query tracing
 
 =item B<bz> B<yui-debug>
 
