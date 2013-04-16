@@ -38,14 +38,14 @@ our $YUI2_PATH                = '/home/dkl/devel/yui2';
 our $YUI3_PATH                = '/home/dkl/devel/yui3';
 
 our $DEFAULT_BZR_HOST         = 'https://bzr.mozilla.org';
-our $DEFAULT_BMO_REPO         = 'bmo/4.0';
-our $DEFAULT_BMO_DB           = 'bugs_bmo';
+our $DEFAULT_BMO_REPO         = 'bmo/4.2';
+our $DEFAULT_BMO_DB           = 'bugs_bmo_42';
 our $BUGZILLA_TRUNK_MILESTONE = '5.0';
 
-our $URL_BASE                 = 'http://centos/';
-our $ATTACH_BASE              = 'http://centos/';
-our $MODPERL_BASE             = 'http://centos/mod_perl/';
-our $MODPERL_ATTACH_BASE      = 'http://centos/mod_perl/';
+our $URL_BASE                 = 'http://localhost:8080/';
+our $ATTACH_BASE              = 'http://localhost:8080/';
+our $MODPERL_BASE             = 'http://localhost:8080/mod_perl/';
+our $MODPERL_ATTACH_BASE      = 'http://localhost:8080/mod_perl/';
 
 our $MAIL_FROM                = 'admin@mozilla.com';
 our $MAINTAINER               = 'admin@mozilla.com';
