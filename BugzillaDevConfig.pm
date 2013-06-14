@@ -39,7 +39,7 @@ our $YUI3_PATH                = '/home/dkl/devel/yui3';
 
 our $DEFAULT_BZR_HOST         = 'https://bzr.mozilla.org';
 our $DEFAULT_BMO_REPO         = 'bmo/4.2';
-our $DEFAULT_BMO_DB           = 'bugs_bmo_42';
+our $DEFAULT_BMO_DB           = 'bugs_bmo';
 our $BUGZILLA_TRUNK_MILESTONE = '5.0';
 
 our $URL_BASE                 = 'http://localhost:8080/';
