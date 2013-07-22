@@ -28,14 +28,17 @@ our @EXPORT = qw(
     %TEST_PARAMS
     %PARAMS_BMO
 
+    @NEVER_DISABLE_BUGMAIL
+
     GROWL
 );
 
-our $HTDOCS_PATH              = '/home/dkl/devel/htdocs';
-our $DATA_PATH                = '/home/dkl/devel/repos/git/bugzilla-dev-manager/data';
-our $REPO_PATH                = '/home/dkl/devel/repos/bzr';
-our $YUI2_PATH                = '/home/dkl/devel/yui2';
-our $YUI3_PATH                = '/home/dkl/devel/yui3';
+my  $ROOT_PATH                = '/home/dkl/devel';
+our $HTDOCS_PATH              = "$ROOT_PATH/htdocs";
+our $DATA_PATH                = "$ROOT_PATH/repos/git/bugzilla-dev-manager/data";
+our $REPO_PATH                = "$ROOT_PATH/repos/bzr";
+our $YUI2_PATH                = "$ROOT_PATH/yui2";
+our $YUI3_PATH                = "$ROOT_PATH/yui3";
 
 our $DEFAULT_BZR_HOST         = 'https://bzr.mozilla.org';
 our $DEFAULT_BMO_REPO         = 'bmo/4.2';
@@ -51,13 +54,13 @@ our $MAIL_FROM                = 'admin@mozilla.com';
 our $MAINTAINER               = 'admin@mozilla.com';
 
 our %LOCALCONFIG = (
+    'cvsbin' => '/usr/bin/cvs',
     'db_host' => 'centosdb',
+    'db_pass' => 'bugs',
     'db_port' => '3306',
     'db_user' => 'bugs',
-    'db_pass' => 'bugs',
-    'cvsbin' => '/usr/bin/cvs',
-    'interdiffbin' => '/usr/bin/interdiff',
     'diffpath' => '/usr/bin',
+    'interdiffbin' => '/usr/bin/interdiff',
     'webservergroup' => 'dkl',
 );
 
@@ -82,6 +85,7 @@ our %PARAMS = (
     user_info_class => 'CGI',
     usestatuswhiteboard => 1,
     usetargetmilestone => 1,
+    'webdotbase' => '/usr/bin/dot',
 );
 
 our %TEST_PARAMS = (
@@ -114,6 +118,11 @@ our %TEST_PARAMS = (
 
 our %PARAMS_BMO = (
     user_info_class => 'Persona,CGI',
+);
+
+our @NEVER_DISABLE_BUGMAIL = qw(
+    dkl@mozilla.com
+    dklawren@hotmail.com
 );
 
 sub GROWL {

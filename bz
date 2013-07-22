@@ -39,6 +39,7 @@ if ($action eq 'new') {
         printf "Bug %s: %s\n", dirToBugID($subdir), $bug->{summary};
     }
 
+
     if (!scalar @ARGV) {
         unshift @ARGV, determineDefaultRepo($subdir);
     }
@@ -66,6 +67,7 @@ if ($action eq 'new') {
     runChecksetup($checksetup_answers);
     popd();
     fixSubDir($subdir);
+    checkCurrentDatabase($subdir);
     info("$subdir created\n" . getDirSummary($subdir, 1));
     GROWL("$subdir created");
 
@@ -78,7 +80,8 @@ if ($action eq 'new') {
     if ($subdir) {
         my $patch = validatePatch(dirToBugID($subdir), @ARGV);
         info("patching $subdir with #$patch");
-        deploySubdirPatch($subdir, $patch);
+        my $filename = downloadPatch($subdir, $patch);
+        applyPatch($subdir, $filename);
     } elsif ($repo) {
         my $bugId = shift @ARGV
             or die "bug number required\n";
@@ -116,12 +119,19 @@ if ($action eq 'new') {
     }
 
     system "$0 fix";
-    deploySubdirPatch($subdir, $patch);
+    my $filename = downloadPatch($subdir, $patch);
+    applyPatch($subdir, $filename);
+
+} elsif ($action eq 'get-patch') {
+    my $subdir = getCurrentSubdir();
+    my $patch = validatePatch(dirToBugID($subdir), shift @ARGV, undef, 1);
+    downloadPatch($subdir, $patch);
 
 } elsif ($action eq 'diff') {
     my $subdir = getCurrentSubdir();
     my $quick = grep { $_ eq '-quick' } @ARGV;
     my $stdout = grep { $_ eq '-' or $_ eq '-stdout' } @ARGV;
+    my $ignore_whitespace = grep { $_ eq '-w' } @ARGV;
     @ARGV = grep { $_ !~ /^-/ } @ARGV;
     my $bug = shift || $subdir;
     my @files = @ARGV;
@@ -145,7 +155,9 @@ if ($action eq 'new') {
         runTests($subdir, 2, 4, 5, 6, 8, 9, 10, 11);
     }
     info("making patch");
-    diff($subdir, $bug, $stdout, @files);
+    my $filename = diff($subdir, $bug, $stdout, $ignore_whitespace, @files);
+    info("checking patch");
+    checkForTailingWhitespace($subdir, $filename);
 
 } elsif ($action eq 'db') {
     my $subdir = getCurrentSubdir();
@@ -158,6 +170,7 @@ if ($action eq 'new') {
         updateLocalConfig($subdir, $database);
         getDbh($subdir);
         fixParams($subdir);
+        checkCurrentDatabase($subdir);
     } else {
         info(sprintf("current database for %s is %s", $subdir, getCurrentDatabase($subdir)));
     }
@@ -260,7 +273,8 @@ if ($action eq 'new') {
 } elsif ($action eq 'test') {
     my $subdir = getCurrentSubdir();
     info("running tests");
-    #checkForTabs($subdir);
+    checkForTabs($subdir);
+    checkForTailingWhitespace($subdir);
     runTests($subdir, @ARGV);
 
 } elsif ($action eq 'xt') {
@@ -418,6 +432,7 @@ sub validateRepo {
         }
     }
     die "failed to find repo/$repo\n" unless $found;
+    die "invalid repo '$repo'\n" unless -e "$REPO_PATH/$repo/checksetup.pl";
     return $repo;
 }
 
@@ -519,6 +534,15 @@ sub getCurrentDatabase {
     return "unknown";
 }
 
+sub checkCurrentDatabase {
+    my ($subdir) = @_;
+    my $dbh = getDbh($subdir);
+    my $count = $dbh->selectrow_array("SELECT count(*) FROM profiles WHERE disable_mail = 0");
+    if ($count > 5) {
+        warn(getCurrentDatabase($subdir) . " has $count users with bugmail enabled\n");
+    }
+}
+
 sub updateLocalConfig {
     my ($subdir, $database) = @_;
     $database ||= getCurrentDatabase($subdir);
@@ -616,7 +640,7 @@ sub getLocalPatchFiles {
     return @files;
 }
 
-sub deploySubdirPatch {
+sub downloadPatch {
     my ($subdir, $patch) = @_;
 
     info("fetching patch $patch");
@@ -667,8 +691,8 @@ sub deploySubdirPatch {
     pushd("$HTDOCS_PATH/$subdir");
     info("creating $filename");
     write_file($filename, { binmode => ':raw' }, $content);
-    applyPatch($filename);
     popd();
+    return $filename;
 }
 
 sub deployRepoPatch {
@@ -705,14 +729,15 @@ sub deployRepoPatch {
     pushd($repodir);
     info("creating $filename");
     write_file($filename, { binmode => ':raw' }, $content);
-    applyPatch($filename);
+    applyPatch(undef, $filename);
     info("deleting $filename");
     unlink($filename);
     popd();
 }
 
 sub applyPatch {
-    my ($filename) = @_;
+    my ($subdir, $filename) = @_;
+    pushd("$HTDOCS_PATH/$subdir") if $subdir;
     my @patch = read_file($filename);
     open(PATCH, "|patch -p0");
     foreach my $line (@patch) {
@@ -725,6 +750,7 @@ sub applyPatch {
         print PATCH $line;
     }
     close(PATCH);
+    popd() if $subdir;
 }
 
 my %_bug_cache;
@@ -757,7 +783,7 @@ sub getBugInfo {
 }
 
 sub diff {
-    my ($subdir, $bug, $stdout, @files) = @_;
+    my ($subdir, $bug, $stdout, $ignore_whitespace, @files) = @_;
     die "Not a branch: $HTDOCS_PATH/$subdir\n" unless -e "$HTDOCS_PATH/$subdir/.bzr";
     pushd("$HTDOCS_PATH/$subdir");
 
@@ -772,7 +798,8 @@ sub diff {
     }
 
     unfix($subdir);
-    my $patch = `bzr diff @files`;
+    my $command = "bzr diff " . ($ignore_whitespace ? "--diff-options -w " : '') . " @files";
+    my $patch = `$command`;
     my $filename;
     if ($bug eq '-' or $stdout) {
         print $patch;
@@ -784,6 +811,7 @@ sub diff {
     fixSubDir($subdir);
     info("$filename created") if $filename;
     popd();
+    return $filename;
 }
 
 sub fixTestParams {
@@ -860,19 +888,12 @@ sub getAnnounceHtml {
         : "<b>$subdir</b>";
     my $summary = CGI::escapeHTML(getDirSummary($subdir));
     my $url = $URL_BASE;
-    my $mail_warning = 
-        -e "$HTDOCS_PATH/$subdir/extensions/LimitedEmailEx" || !-e "$HTDOCS_PATH/$subdir/extensions/LimitedEmail/disabled"
-        ? ''
-        : qq(<img src="${url}mail_warning.png" width="16" height="16">&nbsp;<b>Mail unrestricted</b><br>);
     my $announcehtml = <<EOF;
 <div style="
 background: url(${url}bkg_warning.png) repeat-y scroll left top #fff9db;
 color: #666458;
 padding: 5px 5px 5px 19px;
-">
-$mail_warning
-$dev_name ($db) $summary
-</div>
+">$dev_name ($db) $summary</div>
 EOF
     $announcehtml =~ s/\n//g;
     return $announcehtml;
@@ -1049,12 +1070,16 @@ sub disableBugmail {
     my ($subdir) = @_;
     my $dbh = getDbh($subdir);
     $dbh->do("UPDATE profiles SET disable_mail=1");
+    $dbh->do("UPDATE flagtypes SET cc_list=''");
+    if (@NEVER_DISABLE_BUGMAIL) {
+        $dbh->do("UPDATE profiles SET disable_mail=0 WHERE login_name IN ('" . join("','", @NEVER_DISABLE_BUGMAIL) . "')");
+    }
 }
 
 sub resetEmailQueue {
     my ($subdir) = @_;
     my $dbh = getDbh($subdir);
-    $dbh->do("UPDATE ts_job SET run_after = insert_time");
+    $dbh->do("UPDATE ts_job SET grabbed_until = 0, insert_time = 0, run_after = 0");
 }
 
 sub resetPassword {
@@ -1331,8 +1356,8 @@ sub showInfo {
 database: %s
  comment: %s
         ") . "\n",
-        $subdir,
-        getDirSummary($subdir) || '-',
+        coloured($subdir, 'green'),
+        coloured(getDirSummary($subdir) || '-', 'green'),
         getDirData($subdir, 'repo-version') || '-',
         $bzr_branch || '-',
         getCurrentDatabase($subdir),
@@ -1425,6 +1450,7 @@ sub yui {
     );
 
     $src = "$YUI3_PATH/build";
+    return unless -d $src;
     find(
         sub {
             my $filename = $File::Find::name;
@@ -1486,6 +1512,42 @@ sub checkForTabs {
         alert($filename);
     }
     die "\n";
+}
+
+sub checkForTailingWhitespace {
+    my ($subdir, $filename) = @_;
+
+    my @lines;
+    if ($filename) {
+        @lines = read_file("$HTDOCS_PATH/$subdir/$filename");
+    } else {
+        pushd("$HTDOCS_PATH/$subdir");
+        @lines = `bzr diff`;
+        popd();
+    }
+
+    my %errors;
+    my $hunk_file;
+    foreach my $line (@lines) {
+        next unless $line =~ /^\+/;
+        if ($line =~ /^\+\+\+ (\S+)/) {
+            $hunk_file = $1;
+            next;
+        }
+        chomp($line);
+        next unless $line =~ /\s+$/;
+        my $ra = $errors{$hunk_file} ||= [];
+        push @$ra, $line;
+    }
+    if (scalar keys %errors) {
+        alert("trailing whitespace added:");
+        foreach my $file (sort keys %errors) {
+            print "$file\n";
+            foreach my $line (@{ $errors{$file} }) {
+                print "  $line\n";
+            }
+        }
+    }
 }
 
 sub addBoilerPlates {
@@ -1592,6 +1654,9 @@ sub runTests {
     my @sanity_tests;
     my $selenium_tests   = 0;
     my $webservice_tests = 0;
+    $Test::Harness::verbose = grep { $_ eq '-v' } @args;
+    @args = grep { !/^-/ } @args;
+    my @tests;
     if (scalar @args) {
         foreach my $arg (@args) {
             if ($arg eq '-selenium') {
@@ -1605,7 +1670,7 @@ sub runTests {
                 last;
             } else {
                 push @sanity_tests, glob("t/*$arg*.t");
-            }   
+            }
         }
     } else {
         push @sanity_tests, glob("t/*.t");
@@ -1622,7 +1687,7 @@ sub runTests {
         updateRepo($repo);
         createSubDir("$subdir/test", $repo, 1);
         fixTestParams($subdir);
-        system "perl -I. $HTDOCS_PATH/$subdir/test/config/generate_test_data.pl " . 
+        system "perl -I. $HTDOCS_PATH/$subdir/test/config/generate_test_data.pl " .
                "$HTDOCS_PATH/$subdir/test/config/selenium_test.conf";
         popd();
         my @patches = glob("$HTDOCS_PATH/$subdir/test/config/*.patch");
@@ -1653,6 +1718,8 @@ sub runTests {
 sub runXtTests {
     my ($subdir, @args) = @_;
     pushd("$HTDOCS_PATH/$subdir");
+    $Test::Harness::verbose = grep { $_ eq '-v' } @args;
+    @args = grep { !/^-/ } @args;
     my $dbh = getDbh($subdir);
     my ($bug_count) = $dbh->selectrow_array("SELECT COUNT(*) FROM bugs");
     if ($bug_count) {
@@ -1766,9 +1833,10 @@ download and apply a patch
 
 revert current patch, then download and apply a patch
 
-=item B<bz> B<diff> [-quick] [I<patch number>] [I<files>]
+=item B<bz> B<diff> [-quick] [-w] [I<patch number>] [I<files>]
 
-generate a diff against bzr; tests will be executed if I<-quick> is not specified
+generate a diff against bzr; tests will be executed if I<-quick> is not specified.
+passing I<-w> will ignore whitespaces
 
 =item B<bz> B<db> [I<database>]
 
@@ -1806,7 +1874,7 @@ runs bugzilla's checksetup.pl
 
 =item B<bz> B<disable-bugmail>
 
-disables bugmail for all users
+disables bugmail for all users, and clears all flag CC lists
 
 =item B<bz> B<reset-email-queue>
 
