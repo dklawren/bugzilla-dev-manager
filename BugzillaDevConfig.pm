@@ -33,7 +33,7 @@ our @EXPORT = qw(
     GROWL
 );
 
-my  $ROOT_PATH                = '/home/dkl/devel';
+my  $ROOT_PATH                = '/home/bugzilla/devel';
 our $HTDOCS_PATH              = "$ROOT_PATH/htdocs";
 our $DATA_PATH                = "$ROOT_PATH/repos/git/bugzilla-dev-manager/data";
 our $REPO_PATH                = "$ROOT_PATH/repos/bzr";
@@ -45,17 +45,17 @@ our $DEFAULT_BMO_REPO         = 'bmo/4.2';
 our $DEFAULT_BMO_DB           = 'bugs_bmo';
 our $BUGZILLA_TRUNK_MILESTONE = '5.0';
 
-our $URL_BASE                 = 'http://localhost:8080/';
-our $ATTACH_BASE              = 'http://localhost:8080/';
-our $MODPERL_BASE             = 'http://localhost:8080/mod_perl/';
-our $MODPERL_ATTACH_BASE      = 'http://localhost:8080/mod_perl/';
+our $URL_BASE                 = 'http://bzweb/';
+our $ATTACH_BASE              = 'http://bzweb/';
+our $MODPERL_BASE             = 'http://bzweb/mod_perl/';
+our $MODPERL_ATTACH_BASE      = 'http://bzweb/mod_perl/';
 
 our $MAIL_FROM                = 'admin@mozilla.com';
 our $MAINTAINER               = 'admin@mozilla.com';
 
 our %LOCALCONFIG = (
     'cvsbin' => '/usr/bin/cvs',
-    'db_host' => 'centosdb',
+    'db_host' => 'localhost',
     'db_pass' => 'bugs',
     'db_port' => '3306',
     'db_user' => 'bugs',
