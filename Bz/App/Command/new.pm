@@ -68,6 +68,7 @@ sub execute {
     Bz::Repo->new({ dir => $workdir->repo })->update();
 
     $workdir->create_dir();
+    $workdir->fix();
     $workdir->run_checksetup('-t');
     $workdir->update_localconfig();
     $workdir->run_checksetup();

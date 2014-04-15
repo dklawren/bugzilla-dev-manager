@@ -2,32 +2,32 @@
 # bz dev manager config
 #
 
-bz_path     = "/opt/bz"                 # path to the bz script
-htdocs_path = "/opt/bugzilla/htdocs"
-repo_path   = "/opt/bugzilla/repo"
-yui2_path   = "/opt/bugzilla/yui2"
-yui3_path   = "/opt/bugzilla/yui3"
+bz_path     = "/home/bugzilla/devel/bugzilla-dev-manager-new/bz"                 # path to the bz script
+htdocs_path = "/home/bugzilla/devel/htdocs"
+repo_path   = "/home/bugzilla/devel/repos/bzr"
+yui2_path   = "/home/bugzilla/devel/yui2"
+yui3_path   = "/home/bugzilla/devel/yui3"
 
 default_bmo_repo    = "bmo/4.2"
-default_bmo_db      = "bugs_bmo_201312"
+default_bmo_db      = "bugs_bmo"
 
 bugzilla_trunk_milestone    = "5.0"
-bugzilla_mozilla_org_login  = "glob@mozilla.com"
+bugzilla_mozilla_org_login  = "dkl@mozilla.com"
 
-base_url            = "http://bz/"
-attach_url          = "http://attach.bz/"
-modperl_url         = "http://modperl.bz/"
-modperl_attach_url  = "http://attach.modperl.bz/"
+base_url            = "http://bzweb/"
+attach_url          = "http://bzweb/"
+modperl_url         = "http://bzweb/"
+modperl_attach_url  = "http://bzweb/"
 
 <localconfig>
     cvsbin          = "/usr/bin/cvs"
-    db_host         = "mac"
-    db_pass         = "sockmonkey"
+    db_host         = "localhost"
+    db_pass         = "bugs"
     db_port         = "0"
     db_user         = "bugs"
     diffpath        = "/usr/bin"
     interdiffbin    = "/usr/bin/interdiff"
-    webservergroup  = "byron"
+    webservergroup  = "bugzilla"
 </localconfig>
 
 <params>
@@ -37,9 +37,9 @@ modperl_attach_url  = "http://attach.modperl.bz/"
     defaultpriority                     = "--"
     defaultseverity                     = "normal"
     insidergroup                        = "admin"
-    mail_delivery_method                = "Sendmail"
-    mailfrom                            = "bugzilla-daemon@glob.com.au"
-    maintainer                          = "byron@glob.com.au"
+    mail_delivery_method                = "Test"
+    mailfrom                            = "bugzilla-admin@mozilla.com"
+    maintainer                          = "dkl@mozilla.com"
     memcached_namespace                 = "%dir%:"
     smtpserver                          = ""
     specific_search_allow_empty_words   = "0"
@@ -60,10 +60,10 @@ modperl_attach_url  = "http://attach.modperl.bz/"
     user_info_class                     = "Persona,CGI"
 </params_bmo>
 
-bmo_username = "glob@mozilla.com"
+bmo_username = "dkl@mozilla.com"
 
-never_disable_bugmail = "glob@mozilla.com"
-never_disable_bugmail = "byron.jones@gmail.com"
+never_disable_bugmail = "dkl@mozilla.com"
+never_disable_bugmail = "dklawren@hotmail.com"
 
 # requires /usr/local/bin/terminal-notifier on the mac
-notify_host = "byron@mac"
+notify_host = ""

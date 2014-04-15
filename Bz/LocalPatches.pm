@@ -48,9 +48,22 @@ use constant PATCHES => (
             match   => sub { /\n\s*RewriteEngine On\n(?!\s*RewriteBase)/ },
             action  => sub { my $dir = $_[0]->dir; s/(\n(\s*)RewriteEngine On\n)/$1$2RewriteBase \/$dir\/\n/ },
         },
-        revert   => {
+        revert   => { 
             match   => sub { /\n\s*RewriteEngine On\n\s*RewriteBase/ },
             action  => sub { s/(\n\s*RewriteEngine On)\n\s*RewriteBase [^\n]+/$1/ },
+        },
+    },
+    {
+        desc    => 'TimeDate version',
+        file    => 'Bugzilla/Install/Requirements.pm',
+        whole   => 1,
+        apply   => {
+            match  => sub { /\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*\'2\.23\'/  },
+            action => sub { s/(\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*)\'2\.23\'/$1\'2\.22\'/ },
+        },
+        revert  => {
+            match  => sub { /\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*\'2\.22\'/  },
+            action => sub { s/(\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*)\'2\.22\'/$1\'2\.23\'/ },
         },
     },
 );
