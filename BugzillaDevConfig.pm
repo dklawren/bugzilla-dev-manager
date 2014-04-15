@@ -37,7 +37,7 @@ our @EXPORT = qw(
 
 my  $ROOT_PATH                = '/home/bugzilla/devel';
 our $HTDOCS_PATH              = "$ROOT_PATH/htdocs";
-our $DATA_PATH                = "$ROOT_PATH/repos/git/bugzilla-dev-manager/data";
+our $DATA_PATH                = "$ROOT_PATH/bugzilla-dev-manager/data";
 our $REPO_PATH                = "$ROOT_PATH/repos/bzr";
 our $YUI2_PATH                = "$ROOT_PATH/yui2";
 our $YUI3_PATH                = "$ROOT_PATH/yui3";
@@ -63,7 +63,7 @@ our %LOCALCONFIG = (
     'db_user'        => 'bugs',
     'diffpath'       => '/usr/bin',
     'interdiffbin'   => '/usr/bin/interdiff',
-    'webservergroup' => 'dkl',
+    'webservergroup' => 'bugzilla',
 );
 
 our %PARAMS = (

@@ -45,7 +45,7 @@ sub initHandlers {
 }
 initHandlers();
 
-my $USER_PATH = "~/.bz-dev";
+my $USER_PATH = "~/devel/.bz-dev";
 $USER_PATH =~ s{^~([^/]*)}{$1 ? (getpwnam($1))[7] : (getpwuid($<))[7]}e;
 mkdir($USER_PATH) unless -d $USER_PATH;
 

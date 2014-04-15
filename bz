@@ -6,9 +6,7 @@ $| = 1;
 
 #
 
-#use FindBin qw($Bin);
-#use lib $Bin;
-use lib '/home/dkl/devel/repos/git/bugzilla-dev-manager';
+use lib '/home/bugzilla/devel/bugzilla-dev-manager';
 
 #
 
@@ -66,6 +64,7 @@ if ($action eq 'new') {
     updateLocalConfig($subdir, $database);
     fixParams($subdir);
     fixHtAccess($subdir);
+    fixSubDir($subdir);
     pushd("$HTDOCS_PATH/$subdir");
     runChecksetup('-t', $checksetup_answers);
     runChecksetup($checksetup_answers);
