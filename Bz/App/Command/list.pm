@@ -9,8 +9,10 @@ sub abstract {
 sub execute {
     my ($self, $opt, $args) = @_;
 
-    foreach my $workdir (@{ Bz->workdirs }) {
-        message(sprintf("%s: %s", $workdir->dir, $workdir->summary));
+    foreach my $workdir (@{ Bz->workdirs(1) }) {
+        if ($workdir->summary) {
+            message(sprintf("%s: %s", $workdir->dir, $workdir->summary));
+        }
     }
 }
 

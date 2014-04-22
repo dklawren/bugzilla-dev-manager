@@ -104,10 +104,11 @@ sub _current_path {
 
 my $_workdirs;
 sub workdirs {
+    my $ignore_error = shift;
     require Bz::Workdir;
     chdir(Bz->config->htdocs_path);
     return $_workdirs ||= [
-        map { Bz::Workdir->new({ dir => $_ }) }
+        map { Bz::Workdir->new({ dir => $_, ignore_error => $ignore_error }) }
         grep { !-l $_ && -d $_ }
         glob('*')
     ];
