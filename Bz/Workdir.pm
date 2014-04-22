@@ -90,7 +90,7 @@ sub _isa_repo {
         }
     }
     die "failed to find repo/$repo\n" unless $found;
-    die "invalid repo '$repo'\n" unless -e $config->repo_path . "/$repo/checksetup.pl";
+    #die "invalid repo '$repo'\n" unless -e $config->repo_path . "/$repo/checksetup.pl";
 }
 
 sub _build_repo {
