@@ -11,6 +11,7 @@ BEGIN {
         s/(^\s+|\s+$)//g;
         next unless /^bz_path\s*=\s*"([^"]+)"$/;
         $bz_path = $1;
+        $bz_path =~ s|/bz||;
         last;
     }
     push @INC, $bz_path;
