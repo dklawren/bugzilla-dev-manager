@@ -29,6 +29,7 @@ sub execute {
     my ($self, $opt, $args) = @_;
 
     my $path;
+    my $fallback = 0;
 
     if ($opt->repo) {
         if (@$args) {
@@ -48,26 +49,53 @@ sub execute {
                     }
                 }
             }
+
+            $path
+              || warning("failed to find repo: $repo");
         } elsif (my $repo = eval { Bz->current_repo() }) {
             # root path of current repo
             $path = $repo->path;
         }
-        $path ||= Bz->config->repo_path;
+        if (!$path) {
+            $fallback = 1;
+            $path = Bz->config->repo_path;
+        }
 
     } else {
         if (@$args) {
-            # workdir substring match
-            foreach my $workdir (@{ Bz->workdirs() }) {
-                my $match = 1;
-                foreach my $word (@$args) {
-                    if ($workdir->dir !~ /\Q$word\E/i && $workdir->summary !~ /\Q$word\E/i) {
-                        $match = 0;
+            # dir match
+            if (scalar(@$args) == 1) {
+                my $dir = $args->[0];
+                foreach my $workdir (@{ Bz->workdirs() }) {
+                    if ($workdir->dir eq $dir) {
+                        $path = $workdir->path;
                         last;
                     }
                 }
-                if ($match) {
-                    $path = $workdir->path;
-                    last;
+                if (!$path) {
+                    $dir =~ s/[\- \/]/_/g;
+                    foreach my $workdir (@{ Bz->workdirs() }) {
+                        if ($workdir->dir eq $dir) {
+                            $path = $workdir->path;
+                            last;
+                        }
+                    }
+                }
+            }
+            if (!$path) {
+                # workdir substring match
+                foreach my $workdir (@{ Bz->workdirs() }) {
+                    my $match = 1;
+                    foreach my $word (@$args) {
+                        if ($workdir->dir !~ /\Q$word\E/i && $workdir->summary !~ /\Q$word\E/i) {
+                            $match = 0;
+                            last;
+                        }
+                    }
+                    if ($match) {
+                        $path = $workdir->path;
+                        last;
+                    }
                 }
             }
             alert("no instances matching '" . join(' ', @$args) . "'")
@@ -76,10 +104,14 @@ sub execute {
             # root path of current instance
             $path = $workdir->path;
         }
-        $path ||= Bz->config->htdocs_path;
+        if (!$path) {
+            $fallback = 1;
+            $path = Bz->config->htdocs_path;
+        }
     }
 
     print $path, "\n";
+    exit(1) if $fallback;
 }
 
 1;

@@ -22,6 +22,8 @@ use CGI;
 use CGI::Carp 'fatalsToBrowser';
 use Template;
 
+$SIG{__DIE__} = \&CGI::Carp::confess;
+
 use constant USE_MULTIPART => 1;
 
 my $cgi = CGI->new();
@@ -92,12 +94,11 @@ EOF
 }
 
 my $workdirs = Bz->workdirs;
+my %ids = map { $_ => $_->bug_id ? $_->bug_id : 0 } @$workdirs;
 Bz->preload_bugs($workdirs);
 $workdirs = [
     sort {
-        my $a_bug = $a->bug_id ? 1 : 0;
-        my $b_bug = $b->bug_id ? 1 : 0;
-        return ($a_bug <=> $b_bug) or ($a cmp $b);
+        $ids{$a} <=> $ids{$b} || $a->dir cmp $b->dir
     } @$workdirs
 ];
 

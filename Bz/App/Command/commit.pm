@@ -7,13 +7,19 @@ sub abstract {
 }
 
 sub usage_desc {
-    return "bz commit <bug_id>";
+    return "bz commit <bug_id> [--me][--quick]";
+}
+
+sub opt_spec {
+    return (
+        [ "me", "ignore bug assignee when setting the patch author" ],
+        [ "quick|q", "don't run tests before committing" ],
+    );
 }
 
 sub validate_args {
     my ($self, $opt, $args) = @_;
     shift @$args if @$args && $args->[0] eq 'bug';
-    $self->usage_error("missing <bug_id>") unless @$args;
 }
 
 sub description {
@@ -28,42 +34,73 @@ EOF
 sub execute {
     my ($self, $opt, $args) = @_;
     my $repo = Bz->current;
-    die "unable to commit from a development instance\n"
-        if $repo->is_workdir;
 
-    info("committing bug " . $args->[0]);
-    my $bug = Bz->bug($args->[0]);
-    $repo->test();
+    my @staged = $repo->staged_files();
+    my @committed = $repo->committed_files();
+
+    die "no files are staged or committed\n"
+        unless @staged || @committed;
+
+    die "refusing to commit to the production branch\n"
+        if $repo->branch eq 'production';
+
+    my $bug_id;
+    if ($repo->is_workdir) {
+        $bug_id = $repo->bug_id;
+    } else {
+        $bug_id = shift @$args;
+    }
+    $self->usage_error("missing <bug_id>")
+        unless $bug_id;
+
+    info("committing bug $bug_id");
+    my $bug = Bz->bug($bug_id);
+    $repo->test()
+        unless $opt->quick;
     info('Bug ' . $bug->id . ': ' . $bug->summary);
 
     chdir($repo->path);
-    $repo->bzr('st');
+    if (@staged) {
+        $repo->git(qw(diff --staged --stat));
+    }
+    if (@committed) {
+        $repo->git('diff', '--stat', 'origin/' . $repo->branch, $repo->branch);
+    }
+    print "\n";
 
-    my @args = (
-        'commit',
-        '--fixes', 'mozilla:' . $bug->id,
-    );
-    info('bzr commit');
-    info('  ' . $args[-2] . ' ' . $args[-1]);
+    $repo->git(qw(config --get remote.origin.url));
 
-    my $author = '';
-    if (lc($bug->assignee) ne lc(Bz->config->bmo_username)
-        && $bug->assignee ne 'nobody@mozilla.org'
-    ) {
-        my $user = Bz->bugzilla->user($bug->assignee);
-        push @args, (
-            "--author=" . $user->{name} . " <" . $bug->assignee . ">",
+    if (@staged) {
+        my @args = (
+            'commit',
         );
-        info('  ' . $args[-1]);
+        message('git commit');
+
+        my $author = '';
+        if (lc($bug->assignee) ne lc(Bz->config->bmo_username)
+            && $bug->assignee ne 'nobody@mozilla.org'
+            && !$opt->me
+        ) {
+            my $user = Bz->bugzilla->user($bug->assignee);
+            push @args, (
+                "--author=" . $user->{name} . " <" . $bug->assignee . ">",
+            );
+            message('  ' . $args[-1]);
+        }
+
+        push @args, (
+            '-m', 'Bug ' . $bug->id . ': ' . $bug->summary,
+        );
+        message('  -m "' . $args[-1] . '"');
+        message('git push');
+
+        return unless confirm("commit and push?");
+        $repo->git(@args);
+    } else {
+        return unless confirm("push?");
     }
 
-    push @args, (
-        '-m', 'Bug ' . $bug->id . ': ' . $bug->summary,
-    );
-    info('  -m "' . $args[-1] . '"');
-
-    return unless confirm("commit?");
-    $repo->bzr(@args);
+    $repo->git('push');
 }
 
 1;

@@ -67,25 +67,15 @@ sub boiler_plate {
 
 sub current_workdir {
     require Bz::Workdir;
-    my $path = abs_path('.')
-        or die "failed to find current working directory\n";
-    $path .= '/';
+    my $path = _current_path();
     die "invalid working directory\n"
-        unless $path =~ m#/htdocs/([^/]+)/#;
+        unless "$path/" =~ m#/htdocs/([^/]+)/#;
     return Bz::Workdir->new({ dir => $1 });
 }
 
 sub current_repo {
     require Bz::Repo;
-    my $path = abs_path('.')
-        or die "failed to find current working directory\n";
-    while (!-d "$path/.bzr") {
-        my @dirs = File::Spec->splitdir($path);
-        pop @dirs;
-        $path = File::Spec->catdir(@dirs);
-        die "invalid working directory\n" if $path eq '/';
-    }
-    return Bz::Repo->new({ path => $path });
+    return Bz::Repo->new({ path => _current_path() });
 }
 
 sub current {
@@ -95,6 +85,21 @@ sub current {
     $current = eval { $class->current_repo() };
     return $current if $current;
     die "invalid working directory\n";
+}
+
+sub _current_path {
+    my $path = abs_path('.')
+        or die "failed to find current working directory\n";
+    while (!-d "$path/.git") {
+        my @dirs = File::Spec->splitdir($path);
+        pop @dirs;
+        $path = File::Spec->catdir(@dirs);
+        die "invalid working directory\n" if $path eq '/';
+    }
+    my $remote = `git config --get remote.origin.url`;
+    die "invalid working directory\n"
+        unless $remote =~ m#^ssh://gitolite3\@git\.mozilla\.org/(bugzilla|webtools/bmo)/#;
+    return $path;
 }
 
 my $_workdirs;

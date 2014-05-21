@@ -10,7 +10,8 @@ use IPC::System::Simple qw(EXIT_ANY capturex runx);
 has is_workdir      => ( is => 'ro', default => sub { 0 } );
 has dir             => ( is => 'lazy' );
 has path            => ( is => 'lazy' );
-has bzr_location    => ( is => 'lazy' );
+has url             => ( is => 'lazy' );
+has branch          => ( is => 'lazy' );
 
 use overload (
     '""' => sub { $_[0]->dir }
@@ -28,25 +29,29 @@ sub _build_path {
     return Bz->config->repo_path . '/' . $self->dir;
 }
 
-sub _build_bzr_location {
+sub _build_url {
     my ($self) = @_;
-
-    my $bzr_location = '';
-    my $filename = $self->path . "/.bzr/branch/branch.conf";
-    if (-e $filename) {
-        my $conf = read_file($filename);
-        ($bzr_location) = $conf =~ /bound_location\s*=\s*(.+)\n/;
-    }
-    return $bzr_location;
+    my $repo = $self->git(qw(config --local --get remote.origin.url));
+    chomp($repo);
+    return $repo;
 }
 
-sub bzr {
+sub _build_branch {
+    my ($self) = @_;
+    foreach my $line ($self->git('branch')) {
+        next unless $line =~ /^\* (\S+)/;
+        return $1;
+    }
+    die "failed to determine current branch\n";
+}
+
+sub git {
     my ($self, @args) = @_;
     chdir($self->path);
     if (defined wantarray()) {
-        return capturex(EXIT_ANY, 'bzr', @args);
+        return capturex(EXIT_ANY, 'git', @args);
     } else {
-        return runx(EXIT_ANY, 'bzr', @args);
+        return runx(EXIT_ANY, 'git', @args);
     }
 }
 
@@ -55,7 +60,7 @@ sub update {
     info("updating repo " . $self->dir);
     $self->fix();
     chdir($self->path);
-    $self->bzr('up');
+    $self->git(qw(pull --rebase));
 }
 
 sub fix {
@@ -75,7 +80,7 @@ sub fix_line_endings {
             my $file = $_;
             return if -d $file;
             return unless -T $file;
-            return if $file =~ /\/\.bzr\//;
+            return if $file =~ /\/\.git\//;
             my $content = read_file($file, binmod => ':raw');
             return unless $content =~ /\015\012/;
             my $filename = $File::Find::name;
@@ -92,11 +97,15 @@ sub revert_permissions {
     my ($self) = @_;
 
     chdir($self->path);
-    foreach my $line ($self->bzr('diff')) {
-        next unless $line =~ /modified file '([^']+)' \(properties changed: ([+-]x) to [+-]x\)/;
-        my ($file, $perm) = ($1, $2);
-        message("fixing properties for $file");
-        $file = '"' . $file . '"' if $file =~ / /;
+    my $file;
+    foreach my $line ($self->git('diff')) {
+        if ($line =~ /^diff --git a\/(\S+)/) {
+            $file = $1;
+            next;
+        }
+        next unless $line =~ /^old mode \d\d\d(\d\d\d)/;
+        my $perm = $1;
+        message("fixing properties for $file --> $perm");
         sudo_on_output("chmod $perm $file");
     }
 }
@@ -152,23 +161,74 @@ sub delete_crud {
     }
 }
 
+sub new_files {
+    my ($self) = @_;
+
+    chdir($self->path);
+    my @files;
+    foreach my $line ($self->git(qw(status --porcelain))) {
+        chomp $line;
+        if ($line =~ /^\?\? (.+)$/) {
+            push @files, $1;
+        }
+    }
+    return @files;
+}
+
+sub modified_files {
+    my ($self) = @_;
+
+    chdir($self->path);
+    my @files;
+    foreach my $line ($self->git(qw(status --porcelain))) {
+        chomp $line;
+        if ($line =~ /^.M (.+)$/) {
+            push @files, $1;
+        }
+    }
+    return @files;
+}
+
+sub staged_files {
+    my ($self) = @_;
+
+    chdir($self->path);
+    my @files;
+    foreach my $line ($self->git(qw(status --porcelain))) {
+        chomp $line;
+        if ($line =~ /^[^ \?]. (.+)$/) {
+            push @files, $1;
+        }
+    }
+    return @files;
+}
+
+sub committed_files {
+    my ($self) = @_;
+
+    chdir($self->path);
+    my @files;
+    foreach my $line ($self->git('diff', '--name-status', 'origin/' . $self->branch, $self->branch)) {
+        chomp $line;
+        if ($line =~ /^M\s+(.+)$/) {
+            push @files, $1;
+        }
+    }
+    return @files;
+}
+
 sub added_files {
     my ($self) = @_;
 
     chdir($self->path);
-    my $in_added = 0;
-    my @added_files;
-    foreach my $line ($self->bzr('st')) {
+    my @files;
+    foreach my $line ($self->git(qw(status --porcelain))) {
         chomp $line;
-        if ($line =~ /^  (.+)/) {
-            my $file = $1;
-            next if $file =~ /\@$/;
-            push @added_files, $file if $in_added && !-d $file;
-        } else {
-            $in_added = $line eq 'added:';
+        if ($line =~ /^A  (.+)$/) {
+            push @files, $1;
         }
     }
-    return @added_files;
+    return @files;
 }
 
 sub test {
@@ -191,7 +251,7 @@ sub check_for_tabs {
             my $file = $File::Find::name;
             return if -d $file;
             return unless -T $file;
-            return if $file =~ /^\Q$root\E\/(\.bzr|contrib|data|js\/yui\d?|docs)\//;
+            return if $file =~ /^\Q$root\E\/(\.git|contrib|data|js\/yui\d?|docs)\//;
             return if $file =~ /\.patch$/;
             my $filename = $file;
             $filename =~ s/^\Q$root\E\///;
@@ -215,23 +275,21 @@ sub check_for_unknown_files {
     my ($self) = @_;
 
     chdir($self->path);
-    my @lines = $self->bzr('st');
-    chomp(@lines);
-
     my @unknown;
-    my $current;
-    foreach my $line (@lines) {
-        if ($line =~ /^([^:]+):/) {
-            $current = $1;
-        } elsif ($current eq 'unknown') {
-            $line =~ s/^\s+//;
-            next if $line =~ /\.(patch|orig)$/;
-            push @unknown, $line;
-        }
+    foreach my $line ($self->git(qw(status --porcelain))) {
+        chomp $line;
+        next unless $line =~ /^\?\? (.+)/;
+        my $file = $1;
+
+        next if
+            ($file =~ /\.htaccess$/ && $file ne '.htaccess')
+            || $file =~ /\.(patch|orig)$/
+        ;
+        push @unknown, $file;
     }
     return unless @unknown;
 
-    alert('The following files are new but are missing from bzr:');
+    alert('The following files are new but are not staged');
     my $root = quotemeta($self->path);
     foreach my $filename (@unknown) {
         $filename =~ s/^$root\///o;
@@ -247,7 +305,7 @@ sub check_for_common_mistakes {
     if ($filename) {
         @lines = read_file($filename);
     } else {
-        @lines = `bzr diff`;
+        @lines = $self->git(qw(diff --staged));
     }
 
     my %whitespace;
@@ -296,16 +354,13 @@ sub download_patch {
     my $attachment = Bz->bugzilla->attachment($attach_id);
     message(sprintf("Bug %s: %s", $attachment->{bug_id}, $attachment->{description} || $attachment->{summary}));
     die "attachment is not a patch\n" unless $attachment->{is_patch} == '1';
-    if ($attachment->{is_obsolete} == '1') {
-        return unless confirm('attachment is obsolete, continue?');
-    }
 
     my $bug_id = $attachment->{bug_id};
     my $filename = "$bug_id-$attach_id.patch";
     my $content = $attachment->{data};
     $content =~ s/\015\012/\012/g;
 
-    if ($self->can('bug_id') && $self->bug_id && $self->bug_id != $bug_id) {
+    if ($self->is_workdir && $self->bug_id && $self->bug_id != $bug_id) {
         my $summary = Bz::Bug->new({ id => $bug_id })->summary;
         exit unless confirm("the patch from a different bug:\nBug $bug_id: $summary\ncontinue?");
     }

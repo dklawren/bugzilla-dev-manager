@@ -34,6 +34,18 @@ sub execute {
     info("creating patch");
     chdir($workdir->path);
 
+    die "no files are staged\n"
+        unless $workdir->staged_files();
+
+    $workdir->unfix();
+    if (my @files = $workdir->modified_files) {
+        alert("the following file" . (scalar(@files) == 1 ? ' is' : 's are') . " modified but not staged:");
+        foreach my $file (@files) {
+            warning($file);
+        }
+    }
+    $workdir->fix();
+
     if (!$opt->quick) {
         my @missing;
         foreach my $file (grep { -T $_ } $workdir->added_files()) {
@@ -63,9 +75,9 @@ sub diff {
 
     $workdir->unfix();
     chdir($workdir->path);
-    my @command = ('diff');
-    push @command, ('--diff-options', '-w') if $opt->whitespace;
-    my $patch = $workdir->bzr(@command);
+    my @command = ('diff', '--staged', '--full-index');
+    push @command, ('-w') if $opt->whitespace;
+    my $patch = $workdir->git(@command);
     my $filename;
     if ($opt->stdout) {
         print $patch;
