@@ -90,7 +90,7 @@ sub _isa_repo {
             last;
         }
     }
-    die "failed to find repo/$repo\n" unless $found;
+    #die "failed to find repo/$repo\n" unless $found;
     #die "invalid repo '$repo'\n" unless -e $config->repo_path . "/$repo/checksetup.pl";
 }
 
@@ -107,7 +107,7 @@ sub _build_repo {
 
 sub _build_url {
     my ($self) = @_;
-    my $repo = $self->git(qw(config --local --get remote.origin.url));
+    my $repo = $self->git(qw(config --get remote.origin.url));
     chomp($repo);
     return $repo;
 }
