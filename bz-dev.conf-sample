@@ -2,13 +2,13 @@
 # bz dev manager config
 #
 
-bz_path     = "/home/bugzilla/devel/bugzilla-dev-manager-new/bz"                 # path to the bz script
+bz_path     = "/home/bugzilla/devel/bugzilla-dev-manager/bz" # path to the bz script
 htdocs_path = "/home/bugzilla/devel/htdocs"
-repo_path   = "/home/bugzilla/devel/repos/bzr"
+repo_path   = "/home/bugzilla/devel/repos/git"
 yui2_path   = "/home/bugzilla/devel/yui2"
 yui3_path   = "/home/bugzilla/devel/yui3"
 
-default_bmo_repo    = "bmo/4.2"
+default_bmo_repo    = "bmo/master"
 default_bmo_db      = "bugs_bmo"
 
 bugzilla_trunk_milestone    = "5.0"
