@@ -96,9 +96,9 @@ sub _isa_repo {
 
 sub _build_repo {
     my ($self) = @_;
-    if ($self->url =~ m#webtools/bmo/bugzilla\.git$#) {
+    if ($self->is_bmo) {
         return 'bmo/' . $self->branch;
-    } elsif ($self->url =~ m#bugzilla/bugzilla\.git$#) {
+    } elsif ($self->is_upstream) {
         return 'bugzilla/' . $self->branch;
     } else {
         return '';
@@ -278,7 +278,7 @@ sub fix_params {
         $params{$name} = $config->params->$name;
     }
 
-    if ($self->url =~ m#webtools/bmo/bugzilla\.git$#) {
+    if ($self->is_bmo) {
         foreach my $name ($config->params_bmo->_names) {
             $params{$name} = $config->params_bmo->$name;
         }
@@ -347,13 +347,20 @@ sub fix_missing_dirs {
     # some directories are created by checksetup
     # create them here so we can skip running checksetup
 
-    my $cwd = abs_path();
-    chdir($self->path);
-    foreach my $dir (qw( data/assets )) {
-        next if -d $dir;
-        mkdir($dir);
+    my $path = $self->path;
+
+    if (!-d "$path/data/assets") {
+        mkdir("$path/data/assets");
+        write_file("$path/data/assets/.htaccess", <<'EOF');
+# Allow access to .css files
+<FilesMatch \.css$>
+  Allow from all
+</FilesMatch>
+
+# And no directory listings, either.
+Deny from all
+EOF
     }
-    chdir($cwd);
 }
 
 sub check_db {

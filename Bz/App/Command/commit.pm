@@ -2,18 +2,21 @@ package Bz::App::Command::commit;
 use parent 'Bz::App::Base';
 use Bz;
 
+use File::Temp;
+
 sub abstract {
     return "commits current changes";
 }
 
 sub usage_desc {
-    return "bz commit <bug_id> [--me][--quick]";
+    return "bz commit <bug_id> [--me][--quick][--edit]";
 }
 
 sub opt_spec {
     return (
         [ "me", "ignore bug assignee when setting the patch author" ],
         [ "quick|q", "don't run tests before committing" ],
+        [ "edit|e", "edit the commit message" ],
     );
 }
 
@@ -35,8 +38,8 @@ sub execute {
     my ($self, $opt, $args) = @_;
     my $repo = Bz->current;
 
-    die "this command does not support upstream bugzilla\n"
-        unless $repo->url =~ m#webtools/bmo/bugzilla\.git$#;
+    my $edit = $repo->is_upstream || $opt->edit;
+    my $temp_file;
 
     my @staged = $repo->staged_files();
     my @committed = $repo->committed_files();
@@ -91,13 +94,28 @@ sub execute {
             message('  ' . $args[-1]);
         }
 
-        push @args, (
-            '-m', 'Bug ' . $bug->id . ': ' . $bug->summary,
-        );
-        message('  -m "' . $args[-1] . '"');
-        message('git push');
+        my $message = 'Bug ' . $bug->id . ': ' . $bug->summary;
+        $message .= "\nr=?,a=?"
+            if $repo->is_upstream;
+        if (!$edit) {
+            push @args, '-m', $message;
+        }
+        message("  -m '$message'");
 
-        return unless confirm("commit and push?");
+        message('git push');
+        return unless confirm(
+            $edit
+            ? "edit message, commit, and push?"
+            : "commit and push?"
+        );
+
+        if ($edit) {
+            $temp_file = File::Temp->new();
+            print $temp_file $message;
+            close($temp_file);
+            push @args, '-t', scalar($temp_file);
+        }
+
         $repo->git(@args);
     } else {
         return unless confirm("push?");
