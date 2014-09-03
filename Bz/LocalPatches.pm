@@ -65,45 +65,6 @@ use constant PATCHES => (
             action  => sub { s/Bugzilla\@Development/Bugzilla\@Mozilla/ },
         },
     },
-    {
-        desc    => 'TimeDate version',
-        file    => 'Bugzilla/Install/Requirements.pm',
-        whole   => 1,
-        apply   => {
-            match  => sub { /\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*\'2\.23\'/  },
-            action => sub { s/(\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*)\'2\.23\'/$1\'2\.22\'/ },
-        },
-        revert  => {
-            match  => sub { /\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*\'2\.22\'/  },
-            action => sub { s/(\n\s*module\s*=>\s*\'Date::Format\',\n\s*version\s*=>\s*)\'2\.22\'/$1\'2\.23\'/ },
-        },
-    },
-    {
-        desc    => 'DateTime version',
-        file    => 'Bugzilla/Install/Requirements.pm',
-        whole   => 1,
-        apply   => {
-            match  => sub { /\n\s*module\s*=>\s*\'DateTime\',\n\s*version\s*=>\s*\'0\.75\'/  },
-            action => sub { s/(\n\s*module\s*=>\s*\'DateTime\',\n\s*version\s*=>\s*)\'0\.75\'/$1\'0\.28\'/ },
-        },
-        revert  => {
-            match  => sub { /\n\s*module\s*=>\s*\'DateTime\',\n\s*version\s*=>\s*\'0\.28\'/  },
-            action => sub { s/(\n\s*module\s*=>\s*\'DateTime\',\n\s*version\s*=>\s*)\'0\.28\'/$1\'0\.75\'/ },
-        },
-    },
-    {
-        desc    => 'DateTime-TimeZone version',
-        file    => 'Bugzilla/Install/Requirements.pm',
-        whole   => 1,
-        apply   => {
-            match  => sub { /\n\s*module\s*=>\s*\'DateTime::TimeZone\',\n\s*version\s*=>\s*\'1\.64\'/  },
-            action => sub { s/(\n\s*module\s*=>\s*\'DateTime::TimeZone\',\n\s*version\s*=>\s*)\'1\.64\'/$1\'0\.71\'/ },
-        },
-        revert  => {
-            match  => sub { /\n\s*module\s*=>\s*\'DateTime::TimeZone\',\n\s*version\s*=>\s*\'0\.71\'/  },
-            action => sub { s/(\n\s*module\s*=>\s*\'DateTime::TimeZone\',\n\s*version\s*=>\s*)\'0\.71\'/$1\'1\.64\'/ },
-        },
-    },
 );
 
 sub apply {

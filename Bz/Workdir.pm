@@ -15,6 +15,7 @@ use File::Copy::Recursive 'dircopy';
 use File::Find;
 use File::Path 'remove_tree';
 use File::Slurp;
+use File::Path;
 use Safe;
 use Test::Harness ();
 
@@ -350,7 +351,7 @@ sub fix_missing_dirs {
     my $path = $self->path;
 
     if (!-d "$path/data/assets") {
-        mkdir("$path/data/assets");
+        mkpath("$path/data/assets");
         write_file("$path/data/assets/.htaccess", <<'EOF');
 # Allow access to .css files
 <FilesMatch \.css$>

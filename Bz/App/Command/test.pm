@@ -7,12 +7,13 @@ sub abstract {
 }
 
 sub usage_desc {
-    return "bz test [--verbose] [test number][..]";
+    return "bz test [--verbose] [--full] [test number][..]";
 }
 
 sub opt_spec {
     return (
         [ "verbose|v",  "verbose output" ],
+        [ "full|f", "extended tests" ],
     );
 }
 
@@ -29,6 +30,9 @@ will also be executed.
 
 without arguments all tests will run.  passing one or more number will cause
 only those tests to be executed.
+
+If --full is provided, the full test suite will be ran including WebService
+and Selenium.
 EOF
 }
 
