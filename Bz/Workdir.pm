@@ -16,6 +16,7 @@ use File::Find;
 use File::Path 'remove_tree';
 use File::Slurp;
 use File::Path;
+use JSON::XS;
 use Safe;
 use Test::Harness ();
 
@@ -264,15 +265,34 @@ sub delete_crud {
 sub fix_params {
     my ($self) = @_;
     my $config = Bz->config;
+    my $is_json = 0;
 
     my $filename = $self->path . '/data/params';
-    return unless -e $filename;
+    if (! -e $filename) {
+        # Recent versions of 5.0+ Bugzilla use data/params.json
+        $filename = $self->path . '/data/params.json';
+        if (! -e $filename) {
+            # Earlier version of the json params upgrade :(
+            $filename = $self->path . '/data/params.js';
+        }
+        $is_json = 1;
+        return unless -e $filename;
+    }
 
-    my $s = new Safe;
-    $s->rdo($filename);
-    die "Error reading $filename: $!" if $!;
-    die "Error evaluating $filename: $@" if $@;
-    my %params = %{ $s->varglob('param') };
+    my %params;
+    if ($is_json) {
+        my $data;
+        read_file($filename, binmode => ':utf8', buf_ref => \$data);
+        %params = %{ JSON::XS->new->decode($data) };
+    }
+    else {
+        my $s = new Safe;
+        $s->rdo($filename);
+        die "Error reading $filename: $!" if $!;
+        die "Error evaluating $filename: $@" if $@;
+        %params = %{ $s->varglob('param') };
+    }
+
     my %orig_params = %params;
 
     foreach my $name ($config->params->_names) {
@@ -321,8 +341,14 @@ sub fix_params {
         message("setting '$name' to '$params{$name}'");
     }
 
-    local $Data::Dumper::Sortkeys = 1;
-    write_file($filename, Data::Dumper->Dump([\%params], ['*param']));
+    if ($is_json) {
+        my $json_data = JSON::XS->new->canonical->pretty->encode(\%params);
+        write_file($filename, { binmode => ':utf8', atomic => 1 }, \$json_data);
+    }
+    else {
+        local $Data::Dumper::Sortkeys = 1;
+        write_file($filename, Data::Dumper->Dump([\%params], ['*param']));
+    }
 }
 
 sub fix_permissions {
