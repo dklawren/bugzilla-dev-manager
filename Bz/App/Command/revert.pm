@@ -19,7 +19,7 @@ sub execute {
         'origin/' . $workdir->branch,
         '--hard',
     );
-    $workdir->git(qw(clean -f -d));
+    #$workdir->git(qw(clean -f -d));
     $workdir->git('pull');
     $workdir->fix();
 }
