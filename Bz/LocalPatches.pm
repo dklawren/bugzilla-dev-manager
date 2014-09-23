@@ -7,6 +7,7 @@ use constant PATCHES => (
     {
         desc    => '__DIE__ handler',
         file    => 'Bugzilla.pm',
+        modperl => 1,
         apply   => {
             match   => sub { /^# ?\$::SIG{__DIE__} = i_am_cgi/ },
             action  => sub { s/^#\s*// },
@@ -19,6 +20,7 @@ use constant PATCHES => (
     {
         desc    => 't/012 warnings to errors',
         file    => 't/012throwables.t',
+        modperl => 1,
         apply   => {
             match   => sub { /^\s+ok\(1, "--WARNING \$file has " \. scalar\(\@errors\)/ },
             action  => sub { s/ok\(1,/ok\(0,/ },
@@ -29,8 +31,22 @@ use constant PATCHES => (
         },
     },
     {
+        desc    => 't/012 warnings skip password* errors',
+        file    => 't/012throwables.t',
+        modperl => 1,
+        apply   => {
+            match   => sub { /^\s+DefinedIn\(\$errtype, \$errtag, \$lang\);$/ },
+            action  => sub { s/^([^;]+);$/$1 unless \$errtype eq 'user' and \$errtag =~ \/^password\/;/ },
+        },
+        revert  => {
+            match   => sub { /^\s+DefinedIn\(\$errtype, \$errtag, \$lang\) unless/ },
+            action  => sub { s/^(\s+).+$/$1DefinedIn(\$errtype, \$errtag, \$lang);/ },
+        },
+    },
+    {
         desc    => 'mod_perl sizelimit',
         file    => 'mod_perl.pl',
+        modperl => 1,
         apply   => {
             match   => sub { /^\s+Apache2::SizeLimit->set_max_unshared_size\(250_000\)/ },
             action  => sub { s/\(250_000\)/(1_000_000)/ },
@@ -41,9 +57,10 @@ use constant PATCHES => (
         },
     },
     {
-        desc    => '.htaccess',
+        desc    => '.htaccess rewritebase',
         file    => '.htaccess',
         whole   => 1,
+        modperl => 0,
         apply   => {
             match   => sub { /\n\s*RewriteEngine On\n(?!\s*RewriteBase)/ },
             action  => sub { my $dir = $_[0]->dir; s/(\n(\s*)RewriteEngine On\n)/$1$2RewriteBase \/$dir\/\n/ },
@@ -56,6 +73,7 @@ use constant PATCHES => (
     {
         desc    => 'BugzillaTitle',
         file    => 'extensions/BMO/template/en/default/hook/global/variables-end.none.tmpl',
+        modperl => 1,
         apply   => {
             match   => sub { /Bugzilla\@Mozilla/ },
             action  => sub { s/Bugzilla\@Mozilla/Bugzilla\@Development/ },
@@ -63,6 +81,19 @@ use constant PATCHES => (
         revert  => {
             match   => sub { /Bugzilla\@Development/ },
             action  => sub { s/Bugzilla\@Development/Bugzilla\@Mozilla/ },
+        },
+    },
+    {
+        desc    => 'Image::Magick',
+        file    => 'extensions/BmpConvert/Config.pm',
+        modperl => 1,
+        apply   => {
+            match   => sub { /Image::Magick'/ },
+            action  => sub { s/Image::Magick/Image::Magick::Q16/ },
+        },
+        revert  => {
+            match   => sub { /Image::Magick::Q16/ },
+            action  => sub { s/Image::Magick::Q16/Image::Magick/ },
         },
     },
 );
@@ -83,6 +114,8 @@ sub _patch {
     chdir($workdir->path);
     foreach my $patch (PATCHES) {
         next unless-e $patch->{file};
+        next if $workdir->is_mod_perl && !$patch->{modperl};
+
         my $match  = $patch->{$mode}->{match};
         my $action = $patch->{$mode}->{action};
 

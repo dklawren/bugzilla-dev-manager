@@ -52,6 +52,9 @@ sub _build_url {
 sub _build_branch {
     my ($self) = @_;
     foreach my $line ($self->git('branch')) {
+        if ($line =~ /^\* \(no branch, rebasing ([^\)]+)/) {
+            return $1;
+        }
         next unless $line =~ /^\* (\S+)/;
         return $1;
     }
@@ -68,6 +71,26 @@ sub git {
         return runx(EXIT_ANY, 'git', @args);
     }
     chdir($cwd);
+}
+
+sub git_status {
+    my ($self, $status_mask) = @_;
+
+    my @files;
+    my $cwd = abs_path();
+    chdir($self->path);
+    foreach my $line ($self->git(qw(status --porcelain))) {
+        chomp $line;
+        if ($line =~ /^(..) (.+)$/) {
+            my ($status, $file) = ($1, $2);
+            next unless $status =~ /^$status_mask$/;
+            $file =~ s/^.+? -> //
+                if substr($status, 0, 1) eq 'R';
+            push @files, $file;
+        }
+    }
+    chdir($cwd);
+    return @files;
 }
 
 sub update {
@@ -184,18 +207,7 @@ sub delete_crud {
 
 sub new_files {
     my ($self) = @_;
-
-    my $cwd = abs_path();
-    chdir($self->path);
-    my @files;
-    foreach my $line ($self->git(qw(status --porcelain))) {
-        chomp $line;
-        if ($line =~ /^\?\? (.+)$/) {
-            push @files, $1;
-        }
-    }
-    chdir($cwd);
-    return @files;
+    return $self->git_status('\?\?');
 }
 
 sub new_code_files {
@@ -205,34 +217,17 @@ sub new_code_files {
 
 sub modified_files {
     my ($self) = @_;
-
-    my $cwd = abs_path();
-    chdir($self->path);
-    my @files;
-    foreach my $line ($self->git(qw(status --porcelain))) {
-        chomp $line;
-        if ($line =~ /^.M (.+)$/) {
-            push @files, $1;
-        }
-    }
-    chdir($cwd);
-    return @files;
+    return $self->git_status('.M');
 }
 
 sub staged_files {
     my ($self) = @_;
+    return $self->git_status('[^ \?D].');
+}
 
-    my $cwd = abs_path();
-    chdir($self->path);
-    my @files;
-    foreach my $line ($self->git(qw(status --porcelain))) {
-        chomp $line;
-        if ($line =~ /^[^ \?]. (.+)$/) {
-            push @files, $1;
-        }
-    }
-    chdir($cwd);
-    return @files;
+sub staged_changes {
+    my ($self) = @_;
+    return $self->git_status('[^ \?].');
 }
 
 sub committed_files {
@@ -253,18 +248,7 @@ sub committed_files {
 
 sub added_files {
     my ($self) = @_;
-
-    my $cwd = abs_path();
-    chdir($self->path);
-    my @files;
-    foreach my $line ($self->git(qw(status --porcelain))) {
-        chomp $line;
-        if ($line =~ /^A  (.+)$/) {
-            push @files, $1;
-        }
-    }
-    chdir($cwd);
-    return @files;
+    return $self->git_status('A ');
 }
 
 sub test {
@@ -378,6 +362,7 @@ sub check_for_common_mistakes {
 
     my @missing_bp;
     foreach my $file (($self->new_code_files(), $self->staged_files())) {
+        next if -B $file;
         push @missing_bp, $file
             unless Bz->boiler_plate->exists($file);
     }

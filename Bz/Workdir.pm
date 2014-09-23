@@ -27,6 +27,7 @@ has bug_id      => ( is => 'lazy' );
 has bug         => ( is => 'lazy' );
 has repo        => ( is => 'rw', lazy => 1, coerce => \&_coerce_repo, isa => \&_isa_repo, builder => 1 );
 has db          => ( is => 'rw', lazy => 1, coerce => \&_coerce_db, builder => 1 );
+has is_mod_perl => ( is => 'lazy' );
 
 use overload (
     '""' => sub { "instance " . $_[0]->dir }
@@ -71,6 +72,11 @@ sub _build_bug {
         : undef;
 }
 
+sub _build_is_mod_perl {
+    my ($self) = @_;
+    return $self->dir eq 'mod_perl';
+}
+
 sub _coerce_repo {
     my $repo = lc($_[0] || '');
     $repo =~ s#(^\s+|\s+$)##g;
@@ -92,8 +98,11 @@ sub _isa_repo {
             last;
         }
     }
-    #die "failed to find repo/$repo\n" unless $found;
-    #die "invalid repo '$repo'\n" unless -e $config->repo_path . "/$repo/checksetup.pl";
+    if (!$found) {
+        warn "failed to find repo/$repo\n";
+        return;
+    }
+    die "invalid repo '$repo'\n" unless -e $config->repo_path . "/$repo/checksetup.pl";
 }
 
 sub _build_repo {
@@ -264,61 +273,33 @@ sub delete_crud {
 
 sub fix_params {
     my ($self) = @_;
+
     my $config = Bz->config;
-    my $is_json = 0;
-
-    my $filename = $self->path . '/data/params';
-    if (! -e $filename) {
-        # Recent versions of 5.0+ Bugzilla use data/params.json
-        $filename = $self->path . '/data/params.json';
-        if (! -e $filename) {
-            # Earlier version of the json params upgrade :(
-            $filename = $self->path . '/data/params.js';
-        }
-        $is_json = 1;
-        return unless -e $filename;
-    }
-
-    my %params;
-    if ($is_json) {
-        my $data;
-        read_file($filename, binmode => ':utf8', buf_ref => \$data);
-        %params = %{ JSON::XS->new->decode($data) };
-    }
-    else {
-        my $s = new Safe;
-        $s->rdo($filename);
-        die "Error reading $filename: $!" if $!;
-        die "Error evaluating $filename: $@" if $@;
-        %params = %{ $s->varglob('param') };
-    }
-
-    my %orig_params = %params;
+    my $params = $self->_load_params();
 
     foreach my $name ($config->params->_names) {
-        $params{$name} = $config->params->$name;
+        $params->{$name} = $config->params->$name;
     }
 
     if ($self->is_bmo) {
         foreach my $name ($config->params_bmo->_names) {
-            $params{$name} = $config->params_bmo->$name;
+            $params->{$name} = $config->params_bmo->$name;
         }
     }
 
     if ($self->dir eq 'mod_perl') {
-        $params{urlbase}            = $config->modperl_url;
-        $params{attachment_base}    = $config->modperl_attach_url;
-        $params{cookiepath}         = "/";
-        $params{cookiedomain}       = '';
+        $params->{urlbase}          = $config->modperl_url;
+        $params->{attachment_base}  = $config->modperl_attach_url;
+        $params->{cookiepath}       = "/";
+        $params->{cookiedomain}     = '';
     }
 
-    foreach my $name (keys %params) {
-        $params{$name} =~ s/\%dir\%/$self->dir/e;
+    foreach my $name (keys %$params) {
+        $params->{$name} =~ s/\%dir\%/$self->dir/e;
     }
 
     my $id = $self->bug_id;
-
-    $params{announcehtml} = sprintf(
+    $params->{announcehtml} = sprintf(
         '<div style="' .
         'background: url(%sbkg_warning.png) repeat-y scroll left top #fff9db;' .
         'color: #666458;' .
@@ -334,20 +315,69 @@ sub fix_params {
         CGI::escapeHTML($self->summary),
     );
 
-    foreach my $name (sort keys %params) {
-        next if
-            !exists $orig_params{$name}
-            or $params{$name} eq $orig_params{$name};
-        message("setting '$name' to '$params{$name}'");
+    $self->_save_params($params);
+}
+
+sub get_param {
+    my ($self, $name) = @_;
+
+    my $params = $self->_load_params();
+    return $params->{$name};
+}
+
+sub set_param {
+    my ($self, $name, $value) = @_;
+
+    my $params = $self->_load_params();
+    $params->{$name} = $value;
+    $self->_save_params($params);
+}
+
+sub _load_params {
+    my ($self) = @_;
+    return unless -e $self->path . '/data/params' || -e $self->path . '/data/params.json';
+
+    my $filename = $self->path . '/data/params';
+    if (-e $filename) {
+        my $s = new Safe;
+        $s->rdo($filename);
+        die "Error reading $filename: $!" if $!;
+        die "Error evaluating $filename: $@" if $@;
+        my %params = %{ $s->varglob('param') };
+        return \%params;
     }
 
-    if ($is_json) {
-        my $json_data = JSON::XS->new->canonical->pretty->encode(\%params);
-        write_file($filename, { binmode => ':utf8', atomic => 1 }, \$json_data);
+    $filename .= '.json';
+    if (-e $filename) {
+        return decode_json(read_file($filename, binmode => ':utf8'));
     }
-    else {
+
+    return;
+}
+
+sub _save_params {
+    my ($self, $params) = @_;
+    return unless -e $self->path . '/data/params' || -e $self->path . '/data/params.json';
+
+    my $orig = $self->_load_params();
+    foreach my $name (sort keys %$params) {
+        next if
+            !exists $orig->{$name}
+            or $params->{$name} eq $orig->{$name};
+        message("setting '$name' to '$params->{$name}'");
+    }
+
+    my $filename = $self->path . '/data/params';
+    if (-e $filename) {
         local $Data::Dumper::Sortkeys = 1;
-        write_file($filename, Data::Dumper->Dump([\%params], ['*param']));
+        write_file($filename, Data::Dumper->Dump([$params], ['*param']));
+        return;
+    }
+
+    $filename .= '.json';
+    if (-e $filename) {
+        my $json = JSON->new->canonical->pretty->encode($params);
+        write_file($filename, { binmode => ':utf8' }, \$json);
     }
 }
 

@@ -41,7 +41,7 @@ sub execute {
     my $edit = $repo->is_upstream || $opt->edit;
     my $temp_file;
 
-    my @staged = $repo->staged_files();
+    my @staged = $repo->staged_changes();
     my @committed = $repo->committed_files();
 
     die "no files are staged or committed\n"
@@ -87,10 +87,19 @@ sub execute {
             && $bug->assignee ne 'nobody@mozilla.org'
             && !$opt->me
         ) {
-            my $user = Bz->bugzilla->user($bug->assignee);
-            push @args, (
-                "--author=" . $user->{name} . " <" . $bug->assignee . ">",
-            );
+            my $name = Bz->bugzilla->user($bug->assignee)->{name};
+            $name =~ s/[\[\<\(][^\]\>\)]*[\]\>\)]/ /g;
+            $name =~ s/\s+/ /g;
+            $name =~ s/(^\s+|\s+$)//g;
+            if ($name) {
+                push @args, (
+                    "--author=$name <" . $bug->assignee . ">",
+                );
+            } else {
+                push @args, (
+                    "--author=" . $bug->assignee,
+                );
+            }
             message('  ' . $args[-1]);
         }
 
