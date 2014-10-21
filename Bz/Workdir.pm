@@ -376,7 +376,7 @@ sub _save_params {
 
     $filename .= '.json';
     if (-e $filename) {
-        my $json = JSON->new->canonical->pretty->encode($params);
+        my $json = JSON::XS->new->canonical->pretty->encode($params);
         write_file($filename, { binmode => ':utf8' }, \$json);
     }
 }
