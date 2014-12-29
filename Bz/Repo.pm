@@ -178,6 +178,7 @@ sub delete_crud {
             my $filename = $File::Find::name;
             return unless
                 $filename =~ /\~\d+\~$/
+                || $filename =~ /(\.pm|\.pl|\.tmpl|\.t)\~$/
                 || basename($filename) =~ /^\._/
                 || $filename =~ /\.orig$/
                 || $filename =~ /\.moved$/

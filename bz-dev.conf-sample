@@ -14,10 +14,10 @@ default_bmo_db      = "bugs_bmo"
 bugzilla_trunk_milestone    = "5.0"
 bugzilla_mozilla_org_login  = "dkl@mozilla.com"
 
-base_url            = "http://bzweb/"
-attach_url          = "http://bzweb/"
-modperl_url         = "http://bzweb/"
-modperl_attach_url  = "http://bzweb/"
+base_url            = "http://localhost/"
+attach_url          = "http://localhost/"
+modperl_url         = "http://localhost/"
+modperl_attach_url  = "http://localhost/"
 
 <localconfig>
     cvsbin          = "/usr/bin/cvs"
