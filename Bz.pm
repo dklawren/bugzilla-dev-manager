@@ -132,7 +132,7 @@ sub workdirs {
     chdir(Bz->config->htdocs_path);
     if (!$_workdirs) {
         my @dirs =
-            map { Bz::Workdir->new({ dir => $_ }) }
+            map { Bz::Workdir->new({ dir => $_, ignore_error => 1 }) }
             grep { !-l $_ && -d $_ }
             glob('*');
         my (@bug_dirs, @non_bug_dirs);
