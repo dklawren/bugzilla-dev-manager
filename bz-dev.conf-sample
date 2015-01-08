@@ -57,7 +57,7 @@ modperl_attach_url  = "http://localhost/"
 </params>
 
 <params_bmo>
-    password_complexity                 = "letters_numbers"
+    password_complexity                 = "no_constraints"
     user_info_class                     = "Persona,CGI"
 </params_bmo>
 
