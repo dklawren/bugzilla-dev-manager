@@ -115,6 +115,28 @@ use constant PATCHES => (
             action  => sub { s/Bugzilla\@Development/Bugzilla\@Mozilla/ },
         },
     },
+    {
+        desc    => 'BugzillaCGI',
+        file    => 'Bugzilla/CGI.pm',
+        whole   => 1,
+        filter  => [
+            {
+                repo => 'bmo',
+            },
+            {
+                repo       => 'bugzilla',
+                branch_max => '4.2',
+            },
+        ],
+        apply   => {
+            match   => sub { !/local \$CGI::LIST_CONTEXT_WARN = 0;/ },
+            action  => sub { s/(\n(\s*)use base qw\(CGI\);\n)/$1$2local \$CGI::LIST_CONTEXT_WARN = 0;\n/ },
+        },
+        revert  => {
+            match   => sub { /local \$CGI::LIST_CONTEXT_WARN = 0;/ },
+            action  => sub { s/\n\s*local \$CGI::LIST_CONTEXT_WARN = 0;// },
+        }
+    }
 );
 
 sub apply {
