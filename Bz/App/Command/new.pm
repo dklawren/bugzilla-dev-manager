@@ -19,7 +19,14 @@ sub description {
 creates a new instance, using the provided name.
 
 providing a bug_id as the <dir> is recommended.
+if a repo is not provided, bmo is used by default.
 EOF
+}
+
+sub opt_spec {
+    return (
+        [ "force|f", "allow repos with local modifications" ],
+    );
 }
 
 sub validate_args {
@@ -52,6 +59,9 @@ sub execute {
         push @$args, 'trunk';
     }
 
+    # default to bmo repo
+    push @$args, 'bmo' unless @$args;
+
     # use bmo defaults if just 'bmo' is provided, likewise for 'trunk'
     my ($repo_name, $db);
     if (scalar(@$args) == 1 && $args->[0] eq 'bmo') {
@@ -69,7 +79,7 @@ sub execute {
     die "unable to continue: " . $repo->dir . " is pointing to the production branch\n"
         if $repo->branch eq 'production';
     die "unable to continue: " . $repo->dir . " has local modifications\n"
-        if $repo->git_status();
+        if !$opt->force && $repo->git_status();
 
     if (!$mysql->database_exists($workdir->db)) {
         exit unless confirm("the database '" . $workdir->db . "' does not exist, continue?");

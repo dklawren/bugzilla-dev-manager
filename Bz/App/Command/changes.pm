@@ -31,17 +31,17 @@ EOF
 
 sub execute {
     my ($self, $opt, $args) = @_;
-    my $workdir = Bz->current_workdir;
-    chdir($workdir->path);
+    my $current = Bz->current;
+    chdir($current->path);
 
     silent {
-        $workdir->unfix();
+        $current->unfix();
     };
 
-    my @files = ($workdir->staged_files(), $workdir->modified_files());
+    my @files = ($current->staged_files(), $current->modified_files());
     unless (@files) {
         silent {
-            $workdir->fix();
+            $current->fix();
         };
         die "no files are modified or staged\n"
     }
@@ -49,17 +49,17 @@ sub execute {
     my @command = ('diff');
     push @command, '-w' if $opt->whitespace;
 
-    foreach my $file ($workdir->new_files) {
+    foreach my $file ($current->new_files) {
         next if $file =~ /\.patch$/;
-        $workdir->git(@command, '/dev/null', $file);
+        $current->git(@command, '/dev/null', $file);
     }
 
-    $workdir->git(@command);
+    $current->git(@command);
     push @command, '--staged';
-    $workdir->git(@command);
+    $current->git(@command);
 
     silent {
-        $workdir->fix();
+        $current->fix();
     };
 }
 

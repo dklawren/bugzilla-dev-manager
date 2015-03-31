@@ -3,6 +3,7 @@ use parent 'Bz::App::Base';
 use Bz;
 
 use Bz::Util 'coloured';
+use File::Slurp 'read_file';
 use LWP::Simple;
 use URI;
 use URI::QueryParam;
@@ -12,7 +13,7 @@ sub abstract {
 }
 
 sub usage_desc {
-    return "bz patch [bug_id|source_url] [--last] [--all] [--download] [--test]";
+    return "bz patch [bug_id|source_url|file] [--last] [--all] [--download] [--test] [--patch]";
 }
 
 sub opt_spec {
@@ -21,6 +22,7 @@ sub opt_spec {
         [ "all|a",        "list all patches" ],
         [ "download|d",   "download patch, but don't apply" ],
         [ "test|t",       "run tests after applying patch" ],
+        [ "patch|p",      "use 'patch' instead of 'git' to apply the patch" ],
     );
 }
 
@@ -51,7 +53,12 @@ sub execute {
     die $self->usage_error('missing bug_id or source') unless $source;
 
     my $filename;
-    if ($source =~ m#^https?://#) {
+    my $delete = 1;
+    if (-e $source) {
+        $filename = $source;
+        $delete = 0;
+
+    } elsif ($source =~ m#^https?://#) {
         my $uri = URI->new($source)
             or die "invalid url: $source\n";
         my @segments = $uri->path_segments();
@@ -73,7 +80,7 @@ sub execute {
         message("downloading $uri to $filename");
         getstore($uri, $filename);
 
-    } else {
+    } elsif ($source !~ /\D/) {
         my $bug_id = $source;
         message("fetching patches from bug $bug_id");
         my $summary;
@@ -116,11 +123,41 @@ sub execute {
             info("patching " . $current->dir . " with #$attach_id");
         }
         $filename = $current->download_patch($attach_id);
+    } else {
+        die "unrecognised source: $source\n";
     }
 
     if (!$opt->download) {
-        $current->apply_patch($filename);
-        if (!$current->is_workdir) {
+        my @patch = read_file($filename);
+        my $is_git = 0;
+        foreach my $line (@patch) {
+            if ($line =~ /^diff --git a\//) {
+                $is_git = 1;
+                last;
+            }
+        }
+
+        chdir($current->path);
+        if (!$opt->patch) {
+            $current->git('apply', '-p', ($is_git ? '1' : '0'), '--verbose', $filename);
+            if ($IPC::System::Simple::EXITVAL) {
+                die "patch failed to apply\n";
+            }
+        } else {
+            open(my $patch, "|patch -p" . ($is_git ? '1' : '0'));
+            foreach my $line (@patch) {
+                # === renamed file 'extensions/BMO/web/js/choose_product.js' => 'extensions/BMO/web/js/prod_comp_search.js'
+                if ($line =~ /^=== renamed file '([^']+)' => '([^']+)'/) {
+                    message("renamed '$1' => '$2'");
+                    rename($1, $2);
+                    next;
+                }
+                print $patch $line;
+            }
+            close($patch);
+        }
+
+        if (!$current->is_workdir && $delete) {
             info("deleting $filename");
             unlink($filename);
         } elsif ($opt->test) {

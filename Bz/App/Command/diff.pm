@@ -48,7 +48,7 @@ sub execute {
 
     if (!$opt->quick) {
         my @missing;
-        foreach my $file (grep { -T $_ } $workdir->added_files()) {
+        foreach my $file (grep { !$workdir->should_ignore_file($_) } $workdir->added_files()) {
             push @missing, $file unless $boiler_plate->exists($file);
         }
         if (@missing) {
@@ -57,7 +57,7 @@ sub execute {
             }
             exit unless confirm("continue?");
         }
-        $workdir->test(undef, [2, 4, 5, 6, 8, 9, 10, 11]);
+        $workdir->test(undef, [2..12]);
     }
     $self->diff($workdir, $opt);
 }
@@ -75,7 +75,7 @@ sub diff {
 
     $workdir->unfix();
     chdir($workdir->path);
-    my @command = ('diff', '--staged', '--full-index');
+    my @command = ('diff', '--staged', '--full-index', '--binary');
     push @command, ('-w') if $opt->whitespace;
     my $patch = $workdir->git(@command);
     my $filename;

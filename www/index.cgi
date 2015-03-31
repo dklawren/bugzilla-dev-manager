@@ -24,7 +24,7 @@ use Template;
 
 $SIG{__DIE__} = \&CGI::Carp::confess;
 
-my $use_multipart = $ENV{HTTP_USER_AGENT} =~ /Firefox/;
+my $use_multipart = ($ENV{HTTP_USER_AGENT} || '') =~ /Firefox/;
 
 my $cgi = CGI->new();
 if ($cgi->param('delete') && $cgi->param('dir')) {
@@ -155,12 +155,12 @@ th {
     color: silver;
 }
 
-.resolved {
+.resolved-bug {
     text-decoration: line-through;
 }
 
-.resolved a {
-    color: black;
+.resolved, .resolved a {
+    color: #888;
 }
 
 </style>
@@ -183,17 +183,29 @@ function delete_instance(dir, summary) {
 
 <table border="0" cellpadding="5" cellspacing="0" width="100%">
 
-[% shown_gap = 0 %]
-[% FOREACH workdir = workdirs %]
-    [% IF loop.first %]
+[%
+shown_gap = 0;
+FOREACH workdir IN workdirs;
+    IF workdir.bug_id;
+        bug = workdir.bug;
+        is_resolved = bug.status == "RESOLVED" || bug.status == "VERIFIED";
+    ELSE;
+        bug = 0;
+        is_resolved = 0;
+    END;
+
+    IF loop.first;
+        %]
         <tr>
             <th colspan="2">dir</th>
             <th>repo/db</th>
             <th width="100%" colspan="7">&nbsp;</th>
         </tr>
-    [% END %]
-    [% IF (!shown_gap && workdir.bug_id) %]
-        [% shown_gap = 1 %]
+        [%
+    END;
+    IF (!shown_gap && workdir.bug_id);
+        shown_gap = 1;
+        %]
         <tr>
             <td colspan="7">&nbsp;</td>
         </tr>
@@ -206,11 +218,12 @@ function delete_instance(dir, summary) {
             <th>assignee</th>
             <th>&nbsp;</th>
         </tr>
-    [% END %]
-    <tr id="tr_[% workdir.dir | html %]">
-    [% IF workdir.bug_id %]
-        [% bug = workdir.bug %]
-        <td nowrap class="[% "resolved" IF bug.status == "RESOLVED" || bug.status == "VERIFIED" %]">
+        [%
+    END
+    %]
+    <tr id="tr_[% workdir.dir | html %]" [% ' class="resolved"' IF is_resolved %]>
+    [% IF bug %]
+        <td nowrap class="[% "resolved-bug" IF is_resolved %]">
             <a href="[% workdir.dir | url %]/">[% workdir.dir | html %]</a>
         </td>
         <td>
@@ -226,17 +239,7 @@ function delete_instance(dir, summary) {
             </a>
         </td>
         <td nowrap>
-            [% IF workdir.repo %]
-                [% workdir.repo %]
-            [% ELSE %]
-                -
-            [% END ~%]
-            <br>
-            [%~ IF workdir.db %]
-                [% workdir.db %]
-            [% ELSE %]
-                -
-            [% END %]
+            [% workdir.repo || "-" | html %]<br>[% workdir.db || "-" | html %]
         </td>
         <td nowrap>
             [% bug.status | html %]

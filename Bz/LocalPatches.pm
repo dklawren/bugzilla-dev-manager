@@ -136,7 +136,37 @@ use constant PATCHES => (
             match   => sub { /local \$CGI::LIST_CONTEXT_WARN = 0;/ },
             action  => sub { s/\n\s*local \$CGI::LIST_CONTEXT_WARN = 0;// },
         }
-    }
+    },
+    {
+        desc    => 'asset concatenation',
+        file    => 'Bugzilla/Constants.pm',
+        apply   => {
+            match   => sub { /CONCATENATE_ASSETS => 1;/ },
+            action  => sub { s/CONCATENATE_ASSETS => 1/CONCATENATE_ASSETS => 0/ },
+        },
+        revert  => {
+            match   => sub { /use constant CONCATENATE_ASSETS => 0;/ },
+            action  => sub { s/CONCATENATE_ASSETS => 0/CONCATENATE_ASSETS => 1/ },
+        },
+    },
+    {
+        desc    => 'fix safesys',   # see bug 1116118
+        file    => 't/003safesys.t',
+        whole   => 1,
+        apply   => {
+            match   => sub { !/File::Slurp/ },
+            action  => sub {
+                my $line = q#use File::Slurp; if (scalar(read_file $file) !~ /\b(system|exec)\b/) { ok(1,"$file does not call system or exec"); next }#;
+                s/(my \$command)/$line $1/;
+            },
+        },
+        revert  => {
+            match   => sub { /File::Slurp.+my \$command/ },
+            action  => sub {
+                s/(\n\s+)use File::Slurp.+?(my \$command)/$1$2/;
+            },
+        },
+    },
 );
 
 sub apply {

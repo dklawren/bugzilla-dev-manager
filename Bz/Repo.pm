@@ -7,6 +7,7 @@ use File::Basename;
 use File::Find;
 use File::Slurp;
 use IPC::System::Simple qw(EXIT_ANY capturex runx);
+use Test::Harness ();
 
 has is_workdir      => ( is => 'ro', default => sub { 0 } );
 has is_bmo          => ( is => 'lazy' );
@@ -103,6 +104,9 @@ sub update {
     chdir($cwd);
 }
 
+sub delete_cache {
+}
+
 sub fix {
     my ($self) = @_;
     $self->fix_line_endings();
@@ -111,6 +115,9 @@ sub fix {
     }
     $self->delete_crud();
     $self->fix_permissions();
+}
+
+sub unfix {
 }
 
 sub fix_line_endings {
@@ -216,7 +223,9 @@ sub new_files {
         } elsif ($file ne 'tmp/') {
             chdir($self->path);
             find(sub {
-                push @files, $File::Find::name if -f $_;
+                if (-f $_ && runx([0, 1], 'git', 'check-ignore', '-q', $File::Find::name)) {
+                    push @files, $File::Find::name;
+                }
             }, $file);
         }
     }
@@ -270,13 +279,38 @@ sub added_files {
 }
 
 sub test {
-    my ($self) = @_;
+    my ($self, $opt, $args) = @_;
     $self->check_for_tabs();
     $self->check_for_unknown_files();
     $self->check_for_common_mistakes();
+
+    my $cwd = abs_path();
+    chdir($self->path);
+    my @test_files;
+    if ($args && @$args) {
+        foreach my $number (@$args) {
+            $number = sprintf("%03d", $number);
+            push @test_files, glob("t/$number*.t");
+        }
+    } else {
+        push @test_files, glob("t/*.t");
+    }
+
+    $self->run_tests($opt, @test_files);
+    chdir($cwd);
 }
 
-sub _test_ignore {
+sub run_tests {
+    my ($self, $opt, @test_files) = @_;
+
+    my $cwd = abs_path();
+    chdir($self->path);
+    $Test::Harness::verbose = $opt->verbose if $opt;
+    Test::Harness::runtests(@test_files);
+    chdir($cwd);
+}
+
+sub should_ignore_file {
     my ($self, $file, @extra) = @_;
     return 1 if -d $file;
     return 1 unless -T $file;
@@ -324,7 +358,7 @@ sub check_for_tabs {
     );
     find(sub {
             my $file = $File::Find::name;
-            return if $self->_test_ignore($file, @ignore);
+            return if $self->should_ignore_file($file, @ignore);
             my $content = read_file($file);
             return unless $content =~ /\t/;
             push @invalid, $file;
@@ -380,7 +414,7 @@ sub check_for_common_mistakes {
             $hunk_file = $1;
             next;
         }
-        next if $self->_test_ignore($hunk_file);
+        next if $self->should_ignore_file($hunk_file);
         chomp($line);
         if ($line =~ /\s+$/) {
             my $ra = $whitespace{$hunk_file} ||= [];
@@ -412,7 +446,7 @@ sub check_for_common_mistakes {
 
     my @missing_bp;
     foreach my $file (($self->new_code_files(), $self->staged_files())) {
-        next if $self->_test_ignore($file);
+        next if $self->should_ignore_file($file);
         push @missing_bp, $file
             unless Bz->boiler_plate->exists($file);
     }
