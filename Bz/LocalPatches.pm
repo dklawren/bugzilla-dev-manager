@@ -129,12 +129,12 @@ use constant PATCHES => (
             },
         ],
         apply   => {
-            match   => sub { !/local \$CGI::LIST_CONTEXT_WARN = 0;/ },
-            action  => sub { s/(\n(\s*)use base qw\(CGI\);\n)/$1$2local \$CGI::LIST_CONTEXT_WARN = 0;\n/ },
+            match   => sub { !/\$CGI::LIST_CONTEXT_WARN = 0;/ },
+            action  => sub { s/(\n(\s*)use base qw\(CGI\);\n)/$1$2\$CGI::LIST_CONTEXT_WARN = 0;\n/ },
         },
         revert  => {
-            match   => sub { /local \$CGI::LIST_CONTEXT_WARN = 0;/ },
-            action  => sub { s/\n\s*local \$CGI::LIST_CONTEXT_WARN = 0;// },
+            match   => sub { /\$CGI::LIST_CONTEXT_WARN = 0;/ },
+            action  => sub { s/\n\s*\$CGI::LIST_CONTEXT_WARN = 0;// },
         }
     },
     {
