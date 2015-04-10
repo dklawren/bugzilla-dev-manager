@@ -8,6 +8,8 @@ repo_path   = "/home/bugzilla/devel/repos/git"
 yui2_path   = "/home/bugzilla/devel/yui2"
 yui3_path   = "/home/bugzilla/devel/yui3"
 
+default_repo        = "bmo" # or 'trunk' for upstream, empty string for detect
+
 default_bmo_repo    = "bmo/master"
 default_bmo_db      = "bugs_bmo"
 
