@@ -17,6 +17,7 @@ sub opt_spec {
         [ "me", "ignore bug assignee when setting the patch author" ],
         [ "quick|q", "don't run tests before committing" ],
         [ "edit|e", "edit the commit message" ],
+        [ "force|f", "allow committing of unassigned bugs" ],
     );
 }
 
@@ -65,7 +66,9 @@ sub execute {
         unless $opt->quick;
     info('Bug ' . $bug->id . ': ' . $bug->summary);
 
-    if ($bug->assignee eq 'nobody@mozilla.org' || $bug->assignee =~ /\.bugs$/) {
+    if (!$opt->force
+        && ($bug->assignee eq 'nobody@mozilla.org' || $bug->assignee =~ /\.bugs$/)
+    ) {
         die "cannot commit unassigned bugs\n";
     }
 
@@ -86,6 +89,26 @@ sub execute {
         my @args = (
             'commit',
         );
+
+        my $message = 'Bug ' . $bug->id . ': ' . $bug->summary;
+        if ($repo->is_upstream) {
+            message("looking for reviewer");
+            my $reviewer = '?';
+            my $nicknames = Bz->config->nicknames;
+            foreach my $attachment (reverse @{ Bz->bugzilla->attachments($bug->id) }) {
+                next if $attachment->{is_obsolete};
+                next unless my @flags = grep { $_->{status} eq '+' } @{ $attachment->{flags} };
+                my $setter = lc($flags[0]->{setter});
+                if (my $nick = $nicknames->get($setter)) {
+                    $reviewer = $nick;
+                } else {
+                    warning("couldn't find nickname for reviewer $setter");
+                }
+                last;
+            }
+            $message .= "\nr=$reviewer,a=?";
+        }
+
         message('git commit');
 
         my $author = '';
@@ -109,9 +132,6 @@ sub execute {
             message('  ' . $args[-1]);
         }
 
-        my $message = 'Bug ' . $bug->id . ': ' . $bug->summary;
-        $message .= "\nr=?,a=?"
-            if $repo->is_upstream;
         if (!$edit) {
             push @args, '-m', $message;
         }

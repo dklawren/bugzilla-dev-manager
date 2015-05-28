@@ -63,6 +63,11 @@ modperl_attach_url  = "http://localhost/"
     user_info_class                     = "Persona,CGI"
 </params_bmo>
 
+# login -> commit message nick
+<nicknames>
+    dkl@mozilla.com                    = "dkl"
+</nicknames>
+
 bmo_username = "dkl@mozilla.com"
 
 never_disable_bugmail = "dkl@mozilla.com"
