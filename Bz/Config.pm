@@ -11,7 +11,7 @@ has user_path  => ( is => 'lazy' );
 has _config    => ( is => 'lazy' );
 
 sub _build_user_path {
-    my $path = "~/.bz-dev";
+    my $path = "~/devel/.bz-dev";
     $path =~ s{^~([^/]*)}{$1 ? (getpwnam($1))[7] : (getpwuid($<))[7]}e;
     mkdir($path) unless -d $path;
     return $path;
