@@ -166,7 +166,7 @@ sub fix_permissions {
     chdir($self->path);
     foreach my $file (`find . -type f -perm /111`) {
         chomp $file;
-        next if $file =~ /\.(cgi|pl|swp)$/;
+        next if $file =~ /\.(cgi|pl|sh|swp)$/;
         next if $file =~ /^\.\/contrib\//;
         message("fixing permissions for $file");
         $file = '"' . $file . '"' if $file =~ / /;
@@ -406,8 +406,23 @@ sub check_for_common_mistakes {
         push @lines, $self->git('diff', '/dev/null', $file);
     }
 
-    my %whitespace;
-    my %xxx;
+    my @warnings = (
+        {
+            desc  => 'trailing whitespace added',
+            regex => qr/\s+$/,
+            lines => {},
+        },
+        {
+            desc  => 'line with XXX added',
+            regex => qr/XXX/,
+            lines => {},
+        },
+        {
+            desc  => 'line "print STDERR" added',
+            regex => qr/print\s+STDERR\s/,
+            lines => {},
+        },
+    );
     my $hunk_file;
     foreach my $line (@lines) {
         next unless $line =~ /^\+/;
@@ -417,30 +432,18 @@ sub check_for_common_mistakes {
         }
         next if defined($hunk_file) && $self->should_ignore_file($hunk_file);
         chomp($line);
-        if ($line =~ /\s+$/) {
-            my $ra = $whitespace{$hunk_file} ||= [];
-            push @$ra, $line;
-        }
-        if ($line =~ /XXX/) {
-            my $ra = $xxx{$hunk_file} ||= [];
-            push @$ra, $line;
+        foreach my $warning (@warnings) {
+            next unless $line =~ $warning->{regex};
+            push @{ $warning->{lines}->{$hunk_file}}, $line;
         }
     }
-    if (scalar keys %whitespace) {
-        alert("trailing whitespace added:");
-        foreach my $file (sort keys %whitespace) {
+    foreach my $warning (@warnings) {
+        next unless scalar keys %{ $warning->{lines} };
+        alert($warning->{desc} . ':');
+        foreach my $file (sort keys %{ $warning->{lines} }) {
             warning($file);
-            foreach my $line (@{ $whitespace{$file} }) {
-                message("  $line");
-            }
-        }
-    }
-    if (scalar keys %xxx) {
-        alert("line with XXX added:");
-        foreach my $file (sort keys %xxx) {
-            warning($file);
-            foreach my $line (@{ $xxx{$file} }) {
-                message("   $line");
+            foreach my $line (@{ $warning->{lines}->{$file} }) {
+                message('  ' . $line);
             }
         }
     }
