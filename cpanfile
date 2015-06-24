@@ -1,0 +1,11 @@
+requires 'Class::Load', '0.22';
+requires 'autodie';
+requires 'File::Slurp';
+requires 'IPC::System::Simple';
+requires 'App::Cmd';
+requires 'Moo';
+requires 'CGI';
+requires 'File::Copy::Recursive';
+requires 'JSON::XS';
+requires 'Config::General';
+requires 'DateTime';
