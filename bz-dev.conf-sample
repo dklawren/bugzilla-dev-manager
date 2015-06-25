@@ -15,6 +15,7 @@ default_bmo_db      = "bugs_bmo"
 
 bugzilla_trunk_milestone    = "5.0"
 bugzilla_mozilla_org_login  = "dkl@mozilla.com"
+bugzilla_api_key            = ""
 
 base_url            = "http://fedora/"
 attach_url          = "http://fedora/"
