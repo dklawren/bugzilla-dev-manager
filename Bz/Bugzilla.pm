@@ -9,7 +9,7 @@ use MIME::Base64 qw(decode_base64);
 use URI;
 use URI::QueryParam;
 
-use constant BUG_FIELDS => qw(
+use constant BUG_FIELDS => [qw(
     id
     product
     version
@@ -18,7 +18,7 @@ use constant BUG_FIELDS => qw(
     status
     resolution
     assigned_to
-);
+)];
 
 has _ua        => ( is => 'lazy');
 has _bug_cache => ( is => 'rw', default => sub { {} } );
