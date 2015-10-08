@@ -3,8 +3,11 @@ use Bz;
 use Moo;
 
 use Bz::Bugzilla;
-use REST::Client;
 use JSON::XS qw(decode_json);
+use LWP::UserAgent;
+use MIME::Base64 qw(decode_base64);
+use URI;
+use URI::QueryParam;
 
 use constant BUG_FIELDS => qw(
     id
@@ -17,14 +20,11 @@ use constant BUG_FIELDS => qw(
     assigned_to
 );
 
-has _proxy          => ( is => 'lazy' );
-has _bug_cache      => ( is => 'rw', default => sub { {} } );
+has _ua        => ( is => 'lazy');
+has _bug_cache => ( is => 'rw', default => sub { {} } );
 
-sub _build__proxy {
-    my ($self) = @_;
-    return REST::Client->new(
-        host => "https://bugzilla.mozilla.org"
-    );
+sub _build__ua {
+    return LWP::UserAgent->new( agent => 'bz-dev' );
 }
 
 sub bug {
@@ -32,13 +32,11 @@ sub bug {
     die "missing id" unless $bug_id;
 
     if (!exists $self->_bug_cache->{$bug_id}) {
-        my $uri = URI->new();
-        $uri->query_form({
-            include_fields => join(',', BUG_FIELDS),
-        });
-        my $response = $self->_call(
-            'GET',
-            "/rest/bug/$bug_id" . $uri->as_string
+        my $response = $self->_get(
+            'bug/' . $bug_id,
+            {
+                include_fields => BUG_FIELDS,
+            }
         );
         $self->_bug_cache->{$bug_id} = $response->{bugs}->[0];
     }
@@ -55,14 +53,12 @@ sub bugs {
     }
 
     if (@fetch_ids) {
-        my $uri = URI->new();
-        $uri->query_form({
-            bug_id         => join(',', @fetch_ids),
-            include_fields => join(',', BUG_FIELDS),
-        });
-        my $response = $self->_call(
-            'GET',
-            '/rest/bug' . $uri->as_string
+        my $response = $self->_get(
+            'bug/',
+            {
+                ids => \@fetch_ids,
+                include_fields => BUG_FIELDS,
+            }
         );
         foreach my $bug (@{ $response->{bugs} }) {
             $self->_bug_cache->{$bug->{id}} = $bug;
@@ -80,15 +76,14 @@ sub user {
     my ($self, $login) = @_;
     die "missing login" unless $login;
 
-    my $uri = URI->new();
-    $uri->query_form({
-        include_fields => [ 'name', 'real_name' ],
-    });
-    my $response = $self->_call(
-        'GET',
-        "/rest/user/$login" . $uri->as_string
-    );
-    return unless ref $response;
+    my $response = $self->_get(
+        'user',
+        {
+            names => [ $login ],
+            include_fields => [ 'name', 'real_name' ],
+        }
+    )->{users};
+    return unless $response && @$response;
     return {
         login   => $response->{users}->[0]->{name},
         name    => $response->{users}->[0]->{real_name},
@@ -98,42 +93,56 @@ sub user {
 sub attachments {
     my ($self, $bug_id) = @_;
     die "missing bug_id" unless $bug_id;
-    my $uri = URI->new();
-    $uri->query_form({
-        exclude_fields => [ 'data' ],
-    });
-    return $self->_call(
-        'GET',
-        "/rest/bug/$bug_id/attachment" . $uri->as_string
+    return $self->_get(
+        "bug/$bug_id/attachment",
+        {
+            exclude_fields => [ 'data' ],
+        }
     )->{bugs}->{$bug_id} // [];
 }
 
 sub attachment {
     my ($self, $attach_id) = @_;
     die "missing attach_id" unless $attach_id;
-    my $attachments = $self->_call(
-        'GET',
-        "/rest/bug/attachment/$attach_id"
+    my $attachments = $self->_get(
+        "bug/attachment/$attach_id"
     );
-    return $attachments->{attachments}->{$attach_id}
-        || die "failed to get attachment $attach_id information\n"
+    my $attachment = $attachments->{attachments}->{$attach_id}
+        || die "failed to get attachment $attach_id information\n";
+    if (exists $attachment->{data}) {
+        $attachment->{data} = decode_base64($attachment->{data});
+    }
+    return $attachment;
 }
 
-sub _call {
-    my ($self, $method, $url, $content) = @_;
-    die "Bugzilla API key not found\n"
-        unless Bz->config->bugzilla_api_key;
-    $self->_proxy->request($method, $url, $content, {
-        'Accept'             => 'application/json',
-        'Content-Type'       => 'application/json',
-        'X-Bugzilla-API-Key' => Bz->config->bugzilla_api_key
-    });
-    my $json;
-    eval {
-        $json = decode_json($self->_proxy->responseContent);
-    };
-    $@ && die "Invalid JSON content $@: " . $self->_proxy->responseContent; 
-    return $json;
+sub _get {
+    my ($self, $endpoint, $args) = @_;
+    die "config file missing bmo_api_key\n" unless Bz->config->bmo_api_key;
+    $args //= {};
+
+    if (exists $args->{include_fields} && ref($args->{include_fields})) {
+        $args->{include_fields} = join(',', @{ $args->{include_fields} });
+    }
+
+    my $uri = URI->new('https://bugzilla.mozilla.org/rest/' . $endpoint);
+    foreach my $name (sort keys %$args) {
+        $uri->query_param($name => $args->{$name});
+    }
+
+    my $request = HTTP::Request->new('GET', $uri->as_string);
+    $request->header( Content_Type => 'application/json' );
+    $request->header( Accept => 'application/json' );
+    $request->header( X_Bugzilla_API_Key => Bz->config->bmo_api_key );
+
+    my $response = $self->_ua->request($request);
+    if ($response->code !~ /^2/) {
+        my $error = $response->message;
+        eval {
+            $error = decode_json($response->decoded_content)->{message};
+        };
+        die $error . "\n";
+    }
+    return decode_json($response->decoded_content);
 }
 
 1;

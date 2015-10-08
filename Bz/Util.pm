@@ -17,6 +17,7 @@ our @EXPORT = qw(
     password
 
     notify
+    clipboard
 
     coloured
     die_coloured
@@ -139,7 +140,8 @@ sub password {
 }
 
 sub notify {
-    my $message = shift;
+    my ($message) = @_;
+    return unless Bz->config->notify_host;
 
     my @title = split /\000/, read_file('/proc/self/cmdline');
     shift @title;     # perl
@@ -157,7 +159,13 @@ sub notify {
         '-activate com.googlecode.iterm2 ' .
         qq#-title "$title" # .
         qq#-message "$message" #;
-    #runx('ssh', 'byron@mac', $remote_command);
+    runx('ssh', Bz->config->notify_host, $remote_command);
+}
+
+sub clipboard {
+    my ($message) = @_;
+    return unless Bz->config->notify_host;
+    runx('ssh', Bz->config->notify_host, qq#echo '$message' | pbcopy#);
 }
 
 sub dieInfo {

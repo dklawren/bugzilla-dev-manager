@@ -1,0 +1,16 @@
+#!/usr/bin/env perl
+use FindBin qw($RealBin);
+use lib $RealBin;
+
+use 5.10.0;
+use Bz;
+use Bz::App;
+use Bz::Util 'notify';
+
+$| = 1;
+my $start = time();
+Bz->config;
+Bz::App->run;
+if (time() - $start > 5) {
+    notify('command completed');
+}

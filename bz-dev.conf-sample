@@ -2,7 +2,7 @@
 # bz dev manager config
 #
 
-bz_path     = "/home/bugzilla/devel/repos/github/dklawren/bugzilla-dev-manager/bz" # path to the bz script
+bz_path     = "/home/bugzilla/bugzilla-dev-manager/bz" # path to the bz script
 htdocs_path = "/home/bugzilla/devel/htdocs"
 repo_path   = "/home/bugzilla/devel/repos/gitmo"
 yui2_path   = "/home/bugzilla/devel/yui2"
@@ -15,12 +15,11 @@ default_bmo_db      = "bugs_bmo"
 
 bugzilla_trunk_milestone    = "5.0"
 bugzilla_mozilla_org_login  = "dkl@mozilla.com"
-bugzilla_api_key            = ""
 
-base_url            = "http://fedora/"
-attach_url          = "http://fedora/"
-modperl_url         = "http://fedora/"
-modperl_attach_url  = "http://fedora/"
+base_url            = "http://docker/"
+attach_url          = "http://docker/"
+modperl_url         = "http://docker/"
+modperl_attach_url  = "http://docker/"
 
 <localconfig>
     cvsbin          = "/usr/bin/cvs"
@@ -70,6 +69,7 @@ modperl_attach_url  = "http://fedora/"
 </nicknames>
 
 bmo_username = "dkl@mozilla.com"
+bmo_api_key  = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
 never_disable_bugmail = "dkl@mozilla.com"
 never_disable_bugmail = "dklawren@hotmail.com"
