@@ -7,7 +7,6 @@ use File::Basename;
 use File::Find;
 use File::Slurp;
 use IPC::System::Simple qw(EXIT_ANY capturex runx);
-use MIME::Base64 'decode_base64';
 use Test::Harness ();
 
 has is_workdir      => ( is => 'ro', default => sub { 0 } );
@@ -496,7 +495,7 @@ sub download_patch {
 
     my $bug_id = $attachment->{bug_id};
     my $filename = "$bug_id-$attach_id.patch";
-    my $content = decode_base64($attachment->{data});
+    my $content = $attachment->{data};
     $content =~ s/\015\012/\012/g;
 
     if ($self->is_workdir && $self->bug_id && $self->bug_id != $bug_id) {

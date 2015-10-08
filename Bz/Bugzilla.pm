@@ -85,8 +85,8 @@ sub user {
     )->{users};
     return unless $response && @$response;
     return {
-        login   => $response->{users}->[0]->{name},
-        name    => $response->{users}->[0]->{real_name},
+        login   => $response->[0]->{name},
+        name    => $response->[0]->{real_name},
     };
 }
 

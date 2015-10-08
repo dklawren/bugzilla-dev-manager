@@ -15,8 +15,7 @@ use File::Copy::Recursive 'dircopy';
 use File::Find;
 use File::Path 'remove_tree';
 use File::Slurp;
-use File::Path;
-use JSON::XS;
+use JSON;
 use Safe;
 
 has is_workdir  => ( is => 'ro', default => sub { 1 } );
@@ -117,7 +116,7 @@ sub _build_repo {
 
 sub _build_url {
     my ($self) = @_;
-    my $repo = $self->git(qw(config --get remote.origin.url));
+    my $repo = $self->git(qw(config --local --get remote.origin.url));
     chomp($repo);
     return $repo;
 }
@@ -403,7 +402,7 @@ sub _save_params {
 
     $filename .= '.json';
     if (-e $filename) {
-        my $json = JSON::XS->new->canonical->pretty->encode($params);
+        my $json = JSON->new->canonical->pretty->encode($params);
         write_file($filename, { binmode => ':utf8' }, \$json);
     }
 }
@@ -434,7 +433,7 @@ sub fix_missing_dirs {
     my $path = $self->path;
 
     if (!-d "$path/data/assets") {
-        mkpath("$path/data/assets");
+        mkdir("$path/data/assets");
         write_file("$path/data/assets/.htaccess", <<'EOF');
 # Allow access to .css files
 <FilesMatch \.css$>
