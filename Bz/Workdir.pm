@@ -433,6 +433,7 @@ sub fix_missing_dirs {
     my $path = $self->path;
 
     if (!-d "$path/data/assets") {
+        mkdir("$path/data");
         mkdir("$path/data/assets");
         write_file("$path/data/assets/.htaccess", <<'EOF');
 # Allow access to .css files

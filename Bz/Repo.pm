@@ -167,7 +167,7 @@ sub fix_permissions {
     foreach my $file (`find . -type f -perm /111`) {
         chomp $file;
         next if $file =~ /\.(cgi|pl|sh|swp)$/;
-        next if $file =~ /^\.\/contrib\//;
+        next if $file =~ /^\.\/(contrib|docker|scripts)\//;
         message("fixing permissions for $file");
         $file = '"' . $file . '"' if $file =~ / /;
         sudo_on_output("chmod -x $file");
