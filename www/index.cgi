@@ -94,6 +94,7 @@ EOF
 }
 
 my $workdirs = Bz->workdirs;
+
 my %ids = map { $_ => $_->bug_id ? $_->bug_id : 0 } @$workdirs;
 Bz->preload_bugs($workdirs);
 $workdirs = [
@@ -213,7 +214,7 @@ FOREACH workdir IN workdirs;
             <th colspan="2">dir</th>
             <th>product</th>
             <th>summary</th>
-            <th>repo/db</th>
+            <th>repo:db</th>
             <th>status</th>
             <th>assignee</th>
             <th>&nbsp;</th>
@@ -222,7 +223,7 @@ FOREACH workdir IN workdirs;
     END
     %]
     <tr id="tr_[% workdir.dir | html %]" [% ' class="resolved"' IF is_resolved %]>
-    [% IF bug %]
+      [% IF bug %]
         <td nowrap class="[% "resolved-bug" IF is_resolved %]">
             <a href="[% workdir.dir | url %]/">[% workdir.dir | html %]</a>
         </td>
@@ -239,7 +240,7 @@ FOREACH workdir IN workdirs;
             </a>
         </td>
         <td nowrap>
-            [% workdir.repo || "-" | html %]<br>[% workdir.db || "-" | html %]
+            [% workdir.repo || "-" | html %] : [% workdir.db || "-" | html %]
         </td>
         <td nowrap>
             [% bug.status | html %]

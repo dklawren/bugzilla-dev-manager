@@ -77,6 +77,7 @@ sub _build_is_mod_perl {
 
 sub _coerce_repo {
     my $repo = lc($_[0] || '');
+    print STDERR "repo: $repo\n";
     $repo =~ s#(^\s+|\s+$)##g;
     $repo =~ s#^repo[\\|/]##;
     $repo = 'bugzilla/trunk' if $repo eq 'bugzilla/master';
@@ -132,12 +133,14 @@ sub _coerce_db {
 
 sub _build_db {
     my ($self) = @_;
-
-    my $s = new Safe;
-    $s->rdo($self->path . '/localconfig');
-    die "Error reading localconfig $!" if $!;
-    die "Error evaluating localconfig $@" if $@;
-    return ${ $s->varglob('db_name') };
+    if (-f $self->path . '/localconfig') {
+        my $s = new Safe;
+        $s->rdo($self->path . '/localconfig');
+        die "Error reading localconfig $!" if $!;
+        die "Error evaluating localconfig $@" if $@;
+        return ${ $s->varglob('db_name') };
+    }
+    return '';
 }
 
 sub dbh {
