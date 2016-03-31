@@ -23,6 +23,7 @@ modperl_attach_url  = "http://docker/"
 
 <localconfig>
     cvsbin          = "/usr/bin/cvs"
+    db_driver       = "mysql"
     db_host         = "localhost"
     db_pass         = "bugs"
     db_port         = "0"
