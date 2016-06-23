@@ -4,7 +4,7 @@
 
 bz_path     = "/home/bugzilla/bugzilla-dev-manager/bz" # path to the bz script
 htdocs_path = "/home/bugzilla/devel/htdocs"
-repo_path   = "/home/bugzilla/devel/repos/gitmo"
+repo_path   = "/home/bugzilla/devel/repos/github"
 yui2_path   = "/home/bugzilla/devel/yui2"
 yui3_path   = "/home/bugzilla/devel/yui3"
 

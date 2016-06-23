@@ -8,7 +8,7 @@ installation
 - copy bz-dev.conf-sample to /etc/bz-def.conf and edit
 - checkout the repo's you want to work on under the repo directory
   eg.
-    /opt/bugzilla/repo/bugzilla/trunk
+    /opt/bugzilla/repo/bugzilla/master
     /opt/bugzilla/repo/bmo/4.2
 - (optional) source the bash_aliases script in your login script
 

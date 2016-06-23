@@ -71,7 +71,7 @@ sub execute {
     if (scalar(@$args) == 1 && $args->[0] eq 'bmo') {
         ($repo_name, $db) = ($config->default_bmo_repo, $config->default_bmo_db);
     } elsif (scalar(@$args) == 1 && $args->[0] eq 'trunk') {
-        ($repo_name, $db) = ('trunk', 'trunk');
+        ($repo_name, $db) = ('bugzilla/master', 'bugs_trunk');
     } else {
         ($repo_name, $db) = @$args;
     }
@@ -131,7 +131,7 @@ sub _probe_repo {
             $repo = $bug->target;
             $repo =~ s/^bugzilla //i;
             if ($repo eq '---' || $repo eq $config->bugzilla_trunk_milestone) {
-                $repo = 'bugzilla/trunk';
+                $repo = 'bugzilla/master';
             } else {
                 $repo = "bugzilla/$repo";
             }
@@ -157,7 +157,7 @@ sub _probe_db {
         if ($bug->product eq 'Bugzilla') {
             $db = $bug->target;
             $db =~ s/^bugzilla //i;
-            $db = 'trunk' if $db eq '---' || $db eq $config->bugzilla_trunk_milestone;
+            $db = 'bugs_trunk' if $db eq '---' || $db eq $config->bugzilla_trunk_milestone;
         } elsif ($bug->product eq 'bugzilla.mozilla.org') {
             $db = $config->default_bmo_db;
         } else {
