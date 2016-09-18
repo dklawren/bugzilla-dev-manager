@@ -77,10 +77,8 @@ sub _build_is_mod_perl {
 
 sub _coerce_repo {
     my $repo = lc($_[0] || '');
-    print STDERR "repo: $repo\n";
     $repo =~ s#(^\s+|\s+$)##g;
     $repo =~ s#^repo[\\|/]##;
-    $repo = 'bugzilla/trunk' if $repo eq 'bugzilla/master';
     return $repo;
 }
 

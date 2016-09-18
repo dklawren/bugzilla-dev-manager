@@ -121,7 +121,7 @@ sub _current_path {
     }
     my $remote = `git config --get remote.origin.url`;
     die "invalid working directory\n"
-        unless $remote =~ m#^ssh://gitolite3\@git\.mozilla\.org/(bugzilla|webtools/bmo)/#;
+        unless $remote =~ m#^https://github\.com/(bugzilla|mozilla-bteam)/(bugzilla|bmo)#;
     return $path;
 }
 
