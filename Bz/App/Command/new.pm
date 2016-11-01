@@ -136,7 +136,11 @@ sub _probe_repo {
                 $repo = "bugzilla/$repo";
             }
         } elsif ($bug->product eq 'bugzilla.mozilla.org') {
-            $repo = $config->default_bmo_repo;
+            if ($bug->version eq 'Merge') {
+                $repo = $config->default_merge_repo;
+            } else {
+                $repo = $config->default_bmo_repo;
+            }
         } else {
             alert("unable to map " . $bug->product . " to a repo");
             $repo = $config->default_bmo_repo;
@@ -159,7 +163,7 @@ sub _probe_db {
             $db =~ s/^bugzilla //i;
             $db = 'bugs_trunk' if $db eq '---' || $db eq $config->bugzilla_trunk_milestone;
         } elsif ($bug->product eq 'bugzilla.mozilla.org') {
-            $db = $config->default_bmo_db;
+            $db = $bug->version eq 'Merge' ? $config->default_merge_db : $config->default_bmo_db;
         } else {
             alert("unable to map " . $bug->product . " to a database");
             $db = $config->default_bmo_db;
