@@ -125,6 +125,7 @@ sub fix_line_endings {
         sub {
             my $file = $_;
             return if -d $file;
+            return if !-w $file;
             return unless -T $file;
             return if $file =~ /\/\.git\//;
             my $content = read_file($file, binmod => ':raw');

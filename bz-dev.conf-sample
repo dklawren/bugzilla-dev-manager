@@ -2,7 +2,7 @@
 # bz dev manager config
 #
 
-bz_path     = "/home/bugzilla/bugzilla-dev-manager/bz" # path to the bz script
+bz_path     = "/home/bugzilla/bugzilla-dev-manager/bz-command" # path to the bz script
 htdocs_path = "/home/bugzilla/devel/htdocs"
 repo_path   = "/home/bugzilla/devel/repos/github"
 yui2_path   = "/home/bugzilla/devel/yui2"
