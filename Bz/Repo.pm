@@ -330,6 +330,7 @@ sub should_ignore_file {
         js/yui3/
         template_cache/
         tmp/
+        local/lib/perl5/
     );
     my @ignore_suffix = qw(
         .orig
@@ -359,6 +360,7 @@ sub check_for_tabs {
     my @ignore = qw(
         js/change-columns.js
         t/002goodperl.t
+        Makefile
     );
     find(sub {
             my $file = $File::Find::name;
