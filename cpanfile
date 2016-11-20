@@ -5,6 +5,8 @@ requires 'App::Cmd';
 requires 'Moo';
 requires 'CGI';
 requires 'File::Copy::Recursive';
+requires 'IPC::System::Simple';
+requires 'JSON';
 requires 'JSON::XS';
 requires 'Config::General';
 requires 'DateTime';
