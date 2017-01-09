@@ -31,7 +31,7 @@ modperl_attach_url  = "http://docker/"
     db_user         = "bugs"
     diffpath        = "/usr/bin"
     interdiffbin    = "/usr/bin/interdiff"
-    webservergroup  = "games"
+    webservergroup  = "bugzilla"
 </localconfig>
 
 <params>
