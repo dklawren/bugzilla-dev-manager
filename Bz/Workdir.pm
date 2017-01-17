@@ -88,7 +88,7 @@ sub _isa_repo {
 
     return if $repo eq '';
     my $found = 0;
-    foreach my $try ("$repo", "bugzilla/$repo", "bmo/$repo") {
+    foreach my $try ("$repo", "bugzilla/$repo", "mozilla/$repo") {
         if (-d $config->repo_path . "/$try") {
             $repo = $try;
             $found = 1;
