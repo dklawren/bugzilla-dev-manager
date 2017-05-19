@@ -115,7 +115,7 @@ sub _build_repo {
 
 sub _build_url {
     my ($self) = @_;
-    my $repo = $self->git(qw(config --local --get remote.origin.url));
+    my $repo = $self->git(qw(config --get remote.origin.url));
     chomp($repo);
     return $repo;
 }
